@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Manufacturing Pipeline — FRC 6328</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --gold:    #EFAB28;
+    --cream:   #F4F4EE;
+    --blue-lt: #446CE3;
+    --blue-md: #2F4E94;
+    --blue-dk: #162F65;
+    --navy:    #2F4E94;
+    --text:    #F4F4EE;
+    --muted:   #8fa3c8;
+    --border:  #2F4E94;
+    --input-bg:#151D3B;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Barlow', sans-serif; background: var(--navy); color: var(--text); min-height: 100vh; }
+
+  /* ── CONFIG ── */
+  #config-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; background: #2F4E94; }
+  .cfg-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .cfg-logo-num { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 2rem; color: var(--gold); letter-spacing: 0.04em; }
+  .cfg-logo-sub { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 0.85rem; color: var(--cream); letter-spacing: 0.15em; text-transform: uppercase; }
+  #config-screen p { font-size: 0.8rem; color: var(--muted); margin-bottom: 24px; text-align: center; }
+  .config-card { background: #162F65; border: 1px solid var(--border); border-radius: 12px; padding: 24px; width: 100%; max-width: 420px; }
+  .config-card h2 { font-family: 'Barlow Condensed', sans-serif; font-size: 1.1rem; font-weight: 700; color: var(--gold); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 14px; }
+
+  /* ── MAIN APP ── */
+  #app { display: none; flex-direction: column; height: 100vh; }
+
+  header {
+    background: var(--blue-dk);
+    border-bottom: 3px solid var(--gold);
+    padding: 10px 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  header svg [style*="151d3b"], header svg [style*="151D3B"] { fill: #162F65 !important; }
+  .hdr-logo { display: flex; flex-direction: column; line-height: 1; }
+  .hdr-num { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 1.1rem; color: var(--gold); letter-spacing: 0.06em; }
+  .hdr-sub { font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 0.62rem; color: var(--cream); letter-spacing: 0.18em; text-transform: uppercase; opacity: 0.75; }
+  .hdr-divider { width: 1px; height: 30px; background: var(--border); }
+  .hdr-title { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1rem; color: var(--cream); letter-spacing: 0.08em; text-transform: uppercase; }
+  header span.doc-badge { font-size: 0.7rem; color: var(--muted); margin-left: auto; background: var(--navy); padding: 3px 9px; border-radius: 99px; border: 1px solid var(--border); }
+
+  .toolbar { padding: 9px 14px; background: var(--navy); border-bottom: 1px solid var(--border); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .doc-info { font-size: 0.73rem; color: var(--muted); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .parts-area { flex: 1; overflow-y: auto; padding: 14px; }
+  .parts-area h2 { font-family: 'Barlow Condensed', sans-serif; font-size: 0.75rem; font-weight: 700; color: var(--gold); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 10px; }
+  .part-list { display: flex; flex-direction: column; gap: 6px; }
+  .part-item { background: var(--blue-dk); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+  .part-item:hover { border-color: var(--gold); background: #1c2d5a; }
+  .part-item.selected { border-color: var(--gold); background: #1c2d5a; }
+  .part-item input[type=checkbox] { accent-color: var(--gold); width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; }
+  .part-name { font-size: 0.85rem; font-weight: 600; flex: 1; color: var(--cream); }
+  .part-meta { font-size: 0.7rem; color: var(--muted); }
+
+  .bottom-bar { padding: 12px 14px; background: var(--blue-dk); border-top: 2px solid var(--border); display: flex; gap: 8px; align-items: center; }
+  .sel-count { font-size: 0.78rem; color: var(--muted); flex: 1; }
+
+  /* ── BUTTONS ── */
+  .btn { padding: 8px 16px; border-radius: 6px; border: none; font-family: 'Barlow Condensed', sans-serif; font-size: 0.9rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: opacity 0.15s, transform 0.1s; }
+  .btn:hover { opacity: 0.88; }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--gold); color: var(--navy); }
+  .btn-secondary { background: var(--blue-md); color: var(--cream); }
+  .btn-sm { padding: 5px 11px; font-size: 0.78rem; }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* ── FORM ── */
+  label { display: block; font-family: 'Barlow Condensed', sans-serif; font-size: 0.78rem; font-weight: 700; color: var(--gold); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; margin-top: 14px; }
+  label:first-of-type { margin-top: 0; }
+  input[type=text], input[type=number], input[type=url], select, textarea {
+    width: 100%; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--cream); padding: 7px 10px; font-size: 0.82rem; outline: none;
+    transition: border-color 0.15s; font-family: 'Barlow', sans-serif;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--gold); }
+  select option { background: var(--blue-dk); }
+  textarea { resize: vertical; min-height: 70px; }
+  .required { color: #ef4444; }
+
+  /* ── PILLS ── */
+  .pill-group { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .pill { padding: 4px 12px; border-radius: 99px; border: 1px solid var(--border); background: var(--input-bg); color: var(--muted); font-family: 'Barlow Condensed', sans-serif; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em; cursor: pointer; transition: all 0.12s; user-select: none; }
+  .pill:hover { border-color: var(--gold); color: var(--cream); }
+  .pill.active { background: var(--gold); border-color: var(--gold); color: var(--navy); }
+  .pill-custom { display: flex; gap: 6px; margin-top: 6px; }
+  .pill-custom input { flex: 1; }
+
+  /* ── FILE DROP ── */
+  .file-drop { border: 1.5px dashed var(--border); border-radius: 8px; padding: 14px; text-align: center; cursor: pointer; color: var(--muted); font-size: 0.78rem; transition: border-color 0.15s; margin-top: 4px; }
+  .file-drop:hover, .file-drop.dragover { border-color: var(--gold); color: var(--cream); }
+  .file-drop input { display: none; }
+  .file-name { font-size: 0.75rem; color: #4ade80; margin-top: 6px; font-weight: 600; }
+
+  /* ── MODAL ── */
+  #modal-overlay { position: fixed; inset: 0; background: rgba(10,14,35,0.82); display: none; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
+  #modal-overlay.open { display: flex; }
+  .modal { background: var(--blue-dk); border: 1px solid var(--border); border-top: 3px solid var(--gold); border-radius: 12px; width: 100%; max-width: 500px; max-height: 92vh; display: flex; flex-direction: column; }
+  .modal-header { padding: 14px 18px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+  .modal-header h2 { font-family: 'Barlow Condensed', sans-serif; font-size: 1.1rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; flex: 1; color: var(--cream); }
+  .modal-progress { font-size: 0.72rem; color: var(--navy); background: var(--gold); padding: 3px 10px; border-radius: 99px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; letter-spacing: 0.05em; }
+  .modal-body { padding: 18px; overflow-y: auto; flex: 1; }
+  .modal-footer { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; background: var(--navy); border-radius: 0 0 12px 12px; }
+
+  /* ── TOAST ── */
+  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(60px); background: var(--gold); color: var(--navy); padding: 10px 20px; border-radius: 8px; font-family: 'Barlow Condensed', sans-serif; font-size: 0.9rem; font-weight: 700; letter-spacing: 0.05em; transition: transform 0.3s; z-index: 200; white-space: nowrap; }
+  #toast.error { background: #ef4444; color: #fff; }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-family: 'Barlow Condensed', sans-serif; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; background: #EFAB2822; color: var(--gold); border: 1px solid #EFAB2855; }
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 0.82rem; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #ffffff33; border-top-color: var(--gold); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .cfg-field { margin-bottom: 12px; }
+  .cfg-field label { margin-top: 0; margin-bottom: 4px; }
+  .cfg-note { font-size: 0.72rem; color: var(--muted); margin-top: 3px; font-family: 'Barlow', sans-serif; font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .section-divider { border: none; border-top: 1px solid var(--border); margin: 16px 0 4px; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--navy); }
+  ::-webkit-scrollbar-thumb { background: var(--blue-md); border-radius: 99px; }
+</style>
+</head>
+<body>
+
+<!-- CONFIG -->
+<div id="config-screen">
+  <div class="cfg-logo">
+    <svg width="270" height="179" viewBox="0 0 793.70135 524.89203" xmlns="http://www.w3.org/2000/svg">
+      <path d="M 0,0 C 0.113,16.069 7.582,24.471 22.406,25.206 H 76.383 L 67.471,6.959 H 27.328 C 23.141,6.337 21.076,3.734 21.133,-0.849 v -6.535 h 32.759 c 14.824,-0.792 22.293,-9.222 22.406,-25.291 v -3.649 C 76.185,-51.544 68.66,-59.296 53.722,-59.578 H 22.49 c -14.937,0.282 -22.462,8.034 -22.575,23.254 z m 31.487,-25.715 -10.439,15.87 v -23.678 c 0,-4.979 2.319,-7.724 6.959,-8.233 h 20.199 c 4.639,0.509 6.959,3.254 6.959,8.233 0.057,4.582 -2.008,7.185 -6.195,7.808 z" style="fill:#ffffff;fill-opacity:1;fill-rule:nonzero;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,162.94987,239.65413)" clip-path="url(#clipPath3)"/>
+      <path d="m 0,0 h 27.922 c 5.715,0 8.544,2.348 8.487,7.044 0,4.753 -2.857,7.129 -8.572,7.129 H -19.859 V 32.929 H 31.062 C 40.285,32.76 46.989,30.553 51.176,26.31 55.42,22.123 57.485,16.154 57.372,8.402 57.259,0.651 53.072,-4.866 44.811,-8.147 c 8.034,-3.622 12.391,-9.817 13.07,-18.587 v -5.177 C 57.315,-43.17 50.667,-49.875 37.937,-52.025 h -57.796 l 9.335,18.671 h 38.022 c 5.035,0 7.525,2.518 7.468,7.554 0,5.035 -2.489,7.553 -7.468,7.553 H 11.627 Z" style="fill:#ffffff;fill-opacity:1;fill-rule:nonzero;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,307.5676,249.8384)" clip-path="url(#clipPath5)"/>
+      <path d="m 0,0 c 4.639,0.509 6.959,2.829 6.959,6.959 0.057,4.583 -2.008,7.186 -6.195,7.808 H -48.291 V 33.014 H 5.686 C 20.51,31.147 27.979,22.745 28.092,7.808 V 5.432 C 27.979,-7.582 20.454,-15.333 5.517,-17.823 h -24.188 c -5.885,0.057 -8.827,-5.148 -8.827,-15.616 H 28.177 L 18.756,-51.77 h -67.132 v 23.933 c 0.17,16.804 7.752,26.083 22.745,27.837 z" style="fill:#ffffff;fill-opacity:1;fill-rule:nonzero;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,464.40667,250.0648)" clip-path="url(#clipPath7)"/>
+      <path d="m 0,0 c -4.979,0 -7.497,-2.518 -7.553,-7.553 0,-5.036 2.517,-7.554 7.553,-7.554 h 24.103 c 5.036,0 7.525,2.518 7.469,7.554 0,5.035 -2.49,7.553 -7.469,7.553 z m -10.439,-33.778 c -12.73,2.15 -19.379,8.855 -19.944,20.114 v 5.177 c 0.679,8.77 5.035,14.965 13.07,18.586 -8.261,3.282 -12.448,8.799 -12.561,16.55 -0.113,7.751 1.924,13.721 6.11,17.908 4.244,4.243 10.977,6.45 20.199,6.619 H 27.667 C 36.89,51.007 43.595,48.8 47.782,44.557 52.025,40.37 54.09,34.4 53.977,26.649 53.864,18.898 49.677,13.381 41.416,10.099 49.451,6.478 53.807,0.283 54.486,-8.487 v -5.177 C 53.92,-24.923 47.272,-31.628 34.542,-33.778 Z m 34.966,52.025 c 5.715,0 8.544,2.348 8.487,7.044 0,4.753 -2.857,7.129 -8.572,7.129 H -0.339 c -5.715,0 -8.601,-2.376 -8.657,-7.129 0,-4.696 2.857,-7.044 8.572,-7.044 z" style="fill:#ffffff;fill-opacity:1;fill-rule:nonzero;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,558.21573,274.05453)" clip-path="url(#clipPath9)"/>
+      <path d="m 0,0 c 17.429,0 33.283,-6.707 45.154,-17.665 0.526,-0.485 1.209,-0.761 1.925,-0.761 h 11.969 c 3.004,-0.055 5.801,-0.315 8.388,-0.778 2.691,-0.481 4.434,2.724 2.571,4.725 C 56.037,0.528 36.12,9.921 14,9.921 3.411,9.921 -6.673,7.768 -15.841,3.876 -18.999,2.536 -17.555,-2.251 -14.203,-1.521 -9.627,-0.525 -4.875,0 0,0" style="fill:#162f65;fill-opacity:1;fill-rule:nonzero;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,516.5144,173.69333)" clip-path="url(#clipPath11)"/>
+      <path d="m 0,0 -0.469,-0.079 h -0.475 -18.649 c -0.717,0 -1.402,-0.278 -1.928,-0.765 -11.881,-11.005 -27.769,-17.745 -45.242,-17.745 -4.842,0 -9.562,0.518 -14.109,1.5 -3.365,0.728 -4.814,-4.073 -1.644,-5.414 9.145,-3.868 19.198,-6.007 29.753,-6.007 21.808,0 41.483,9.123 55.423,23.758 C 4.564,-2.753 2.821,0.482 0.099,0.017 0.066,0.011 0.033,0.006 0,0" style="fill:#162f65;fill-opacity:1;fill-rule:nonzero;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,605.5312,326.54547)" clip-path="url(#clipPath13)"/>
+      <path d="m 0,0 c -31.87,0 -59.897,16.44 -76.075,41.298 -0.527,0.81 -1.418,1.307 -2.385,1.307 l -23.559,0.001 c -3.175,0.06 -6.099,0.429 -8.765,1.097 -2.441,0.611 -4.407,-1.964 -3.177,-4.16 17.946,-32.05 52.224,-53.716 91.567,-53.716 14.196,0 27.732,2.821 40.079,7.933 4.332,1.794 2.414,8.35 -2.207,7.556 C 10.448,0.451 5.277,0 0,0" style="fill:#efab28;fill-opacity:1;fill-rule:nonzero;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,328.81893,383.4572)" clip-path="url(#clipPath15)"/>
+      <path d="m 0,0 0.141,0.007 h 23.624 c 0.966,0 1.857,0.497 2.383,1.308 16.17,24.905 44.223,41.381 76.129,41.381 5.232,0 10.359,-0.442 15.348,-1.293 4.694,-0.8 6.531,5.808 2.127,7.62 -12.29,5.057 -25.753,7.847 -39.868,7.847 -39.537,0 -73.96,-21.878 -91.833,-54.186 -1.235,-2.233 0.851,-4.793 3.3,-4.076 C -6.018,-0.623 -3.132,-0.155 0,0" style="fill:#efab28;fill-opacity:1;fill-rule:nonzero;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,192.4492,198.496)" clip-path="url(#clipPath17)"/>
+      <path d="m 0,0 c -62.621,0 -113.386,50.765 -113.386,113.386 0,62.621 50.765,113.386 113.386,113.386 2.851,0 5.677,-0.108 8.475,-0.316 1.802,-0.134 3.264,1.429 3.007,3.217 -0.206,1.43 -0.737,5.125 -1.18,8.212 l -3.906,27.187 c -0.443,3.087 -3.338,5.924 -6.432,6.306 0,0 -9.782,1.208 -15.838,1.208 -8.253,0 -15.853,-1.094 -15.853,-1.094 -3.086,-0.445 -5.974,-3.333 -6.417,-6.42 l -3.906,-27.187 c -0.443,-3.087 -3.236,-6.39 -6.205,-7.341 l -27.536,-11.385 c -2.766,-1.439 -7.071,-1.088 -9.567,0.781 l -21.992,16.467 c -2.496,1.869 -6.581,1.87 -9.077,10e-4 0,0 -6.148,-4.6 -11.984,-10.436 -4.282,-4.282 -10.345,-12.053 -10.345,-12.053 -1.918,-2.458 -1.958,-6.512 -0.089,-9.008 l 16.456,-21.978 c 1.869,-2.496 2.22,-6.8 0.779,-9.566 l -11.41,-27.557 c -0.952,-2.969 -4.257,-5.761 -7.343,-6.204 l -27.148,-3.9 c -3.086,-0.443 -5.975,-3.331 -6.419,-6.417 0,0 -1.095,-7.6 -1.095,-15.853 0,-6.057 1.208,-15.838 1.208,-15.838 0.382,-3.095 3.22,-5.989 6.306,-6.433 l 27.125,-3.896 c 3.087,-0.444 6.389,-3.236 7.339,-6.206 l 11.406,-27.603 c 1.439,-2.766 1.087,-7.071 -0.782,-9.567 L -138.845,21.96 c -1.869,-2.496 -1.87,-6.581 -0.002,-9.078 0,0 4.6,-6.147 10.436,-11.983 4.283,-4.283 12.053,-10.345 12.053,-10.345 2.459,-1.919 6.512,-1.959 9.008,-0.09 l 21.919,16.413 c 2.496,1.869 6.801,2.219 9.566,0.779 L -48.24,-3.775 c 2.969,-0.951 5.761,-4.255 6.205,-7.341 l 3.891,-27.085 c 0.443,-3.086 3.331,-5.975 6.417,-6.42 0,0 7.6,-1.094 15.853,-1.094 6.055,0 15.832,1.207 15.832,1.207 3.095,0.382 5.99,3.22 6.434,6.306 l 2.339,16.257 c 0.444,3.087 1.157,8.048 1.585,11.026 0.427,2.978 0.778,5.415 0.778,5.415 0.001,0 0.171,1.174 0.377,2.61 C 11.728,-1.11 10.27,0.449 8.473,0.315 5.676,0.107 2.85,0 0,0" style="fill:#151d3b;fill-opacity:1;fill-rule:nonzero;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,298.96067,413.69333)" clip-path="url(#clipPath21)"/>
+      <path d="m 0,0 c -3.086,0.443 -6.391,3.235 -7.343,6.205 l -7.439,17.987 c -1.441,2.766 -1.091,7.07 0.778,9.566 l 10.599,14.155 c 1.869,2.496 1.828,6.549 -0.09,9.008 0,0 -3.656,4.686 -6.86,7.89 -4.366,4.366 -7.821,6.951 -7.821,6.951 -2.497,1.868 -6.581,1.868 -9.077,-0.001 L -41.418,61.154 c -2.496,-1.869 -6.801,-2.22 -9.567,-0.781 l -17.971,7.422 c -2.97,0.951 -5.762,4.254 -6.206,7.341 l -2.515,17.51 c -0.444,3.087 -3.331,5.976 -6.418,6.42 0,0 -4.271,0.615 -10.445,0.615 -4.531,0 -10.43,-0.728 -10.43,-0.728 -3.095,-0.382 -5.99,-3.22 -6.433,-6.307 l -2.515,-17.51 c -0.444,-3.087 -0.876,-6.097 -0.961,-6.691 -0.256,-1.777 1.188,-3.328 2.98,-3.213 1.813,0.117 3.642,0.177 5.484,0.177 46.845,0 84.82,-37.975 84.82,-84.82 0,-46.845 -37.975,-84.82 -84.82,-84.82 -1.834,0 -3.654,0.059 -5.459,0.175 -1.8,0.115 -3.251,-1.444 -2.994,-3.229 0.084,-0.585 0.153,-1.064 0.153,-1.064 0.001,0 0.259,-1.79 0.573,-3.978 0.314,-2.188 0.935,-6.503 1.379,-9.589 l 1.363,-9.479 c 0.444,-3.087 3.34,-5.924 6.434,-6.306 0,0 5.896,-0.728 10.426,-0.728 6.174,0 10.445,0.615 10.445,0.615 3.087,0.444 5.974,3.333 6.418,6.42 l 2.504,17.433 c 0.444,3.087 3.236,6.39 6.205,7.341 l 18.038,7.456 c 2.766,1.44 7.07,1.09 9.566,-0.779 l 14.111,-10.566 c 2.496,-1.869 6.549,-1.828 9.008,0.09 0,0 4.686,3.656 7.89,6.86 4.366,4.366 6.951,7.821 6.951,7.821 1.868,2.497 1.868,6.581 -10e-4,9.077 l -10.574,14.121 c -1.869,2.496 -2.22,6.801 -0.781,9.567 l 7.438,18.022 c 0.95,2.969 4.252,5.762 7.339,6.205 l 17.463,2.509 c 3.087,0.444 5.925,3.338 6.307,6.433 0,0 0.728,5.899 0.728,10.43 0,6.174 -0.615,10.445 -0.615,10.445 -0.444,3.087 -3.333,5.975 -6.42,6.418 z" style="fill:#151d3b;fill-opacity:1;fill-rule:nonzero;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,677.3624,236.6032)" clip-path="url(#clipPath23)"/>
+    </svg>
+  </div>
+  <p style="margin-top:8px">Manufacturing Pipeline — enter credentials to connect</p>
+  <div class="config-card">
+    <h2>OnShape API</h2>
+    <div class="cfg-field">
+      <label>Access Key</label>
+      <input type="text" id="cfg-os-key" placeholder="Your OnShape access key"/>
+    </div>
+    <div class="cfg-field">
+      <label>Secret Key</label>
+      <input type="text" id="cfg-os-secret" placeholder="Your OnShape secret key"/>
+    </div>
+    <h2 style="margin-top:18px">Slack</h2>
+    <div class="cfg-field">
+      <label>Bot Token</label>
+      <input type="text" id="cfg-slack-token" placeholder="xoxb-..."/>
+      <div class="cfg-note">From your Slack app's OAuth page</div>
+    </div>
+    <div class="cfg-field">
+      <label>Channel ID</label>
+      <input type="text" id="cfg-slack-channel" placeholder="C0XXXXXXXXX"/>
+      <div class="cfg-note">Right-click channel → View channel details → Copy ID</div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="saveConfig()">Connect & Launch</button>
+    <button class="btn btn-secondary" style="width:100%;margin-top:8px" onclick="useDemoMode()">Demo Mode (no credentials)</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <header>
+    <svg width="160" height="110" viewBox="0 30 720 460" xmlns="http://www.w3.org/2000/svg">
+      <rect width="793.70135" height="524.89203" fill="#2f4e94"/>
+      <path d="M 0,0 C 0.113,16.069 7.582,24.471 22.406,25.206 H 76.383 L 67.471,6.959 H 27.328 C 23.141,6.337 21.076,3.734 21.133,-0.849 v -6.535 h 32.759 c 14.824,-0.792 22.293,-9.222 22.406,-25.291 v -3.649 C 76.185,-51.544 68.66,-59.296 53.722,-59.578 H 22.49 c -14.937,0.282 -22.462,8.034 -22.575,23.254 z m 31.487,-25.715 -10.439,15.87 v -23.678 c 0,-4.979 2.319,-7.724 6.959,-8.233 h 20.199 c 4.639,0.509 6.959,3.254 6.959,8.233 0.057,4.582 -2.008,7.185 -6.195,7.808 z" style="fill:#ffffff;fill-rule:nonzero;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,162.94987,239.65413)"/>
+      <path d="m 0,0 h 27.922 c 5.715,0 8.544,2.348 8.487,7.044 0,4.753 -2.857,7.129 -8.572,7.129 H -19.859 V 32.929 H 31.062 C 40.285,32.76 46.989,30.553 51.176,26.31 55.42,22.123 57.485,16.154 57.372,8.402 57.259,0.651 53.072,-4.866 44.811,-8.147 c 8.034,-3.622 12.391,-9.817 13.07,-18.587 v -5.177 C 57.315,-43.17 50.667,-49.875 37.937,-52.025 h -57.796 l 9.335,18.671 h 38.022 c 5.035,0 7.525,2.518 7.468,7.554 0,5.035 -2.489,7.553 -7.468,7.553 H 11.627 Z" style="fill:#ffffff;fill-rule:nonzero;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,307.5676,249.8384)"/>
+      <path d="m 0,0 c 4.639,0.509 6.959,2.829 6.959,6.959 0.057,4.583 -2.008,7.186 -6.195,7.808 H -48.291 V 33.014 H 5.686 C 20.51,31.147 27.979,22.745 28.092,7.808 V 5.432 C 27.979,-7.582 20.454,-15.333 5.517,-17.823 h -24.188 c -5.885,0.057 -8.827,-5.148 -8.827,-15.616 H 28.177 L 18.756,-51.77 h -67.132 v 23.933 c 0.17,16.804 7.752,26.083 22.745,27.837 z" style="fill:#ffffff;fill-rule:nonzero;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,464.40667,250.0648)"/>
+      <path d="m 0,0 c -4.979,0 -7.497,-2.518 -7.553,-7.553 0,-5.036 2.517,-7.554 7.553,-7.554 h 24.103 c 5.036,0 7.525,2.518 7.469,7.554 0,5.035 -2.49,7.553 -7.469,7.553 z m -10.439,-33.778 c -12.73,2.15 -19.379,8.855 -19.944,20.114 v 5.177 c 0.679,8.77 5.035,14.965 13.07,18.586 -8.261,3.282 -12.448,8.799 -12.561,16.55 -0.113,7.751 1.924,13.721 6.11,17.908 4.244,4.243 10.977,6.45 20.199,6.619 H 27.667 C 36.89,51.007 43.595,48.8 47.782,44.557 52.025,40.37 54.09,34.4 53.977,26.649 53.864,18.898 49.677,13.381 41.416,10.099 49.451,6.478 53.807,0.283 54.486,-8.487 v -5.177 C 53.92,-24.923 47.272,-31.628 34.542,-33.778 Z m 34.966,52.025 c 5.715,0 8.544,2.348 8.487,7.044 0,4.753 -2.857,7.129 -8.572,7.129 H -0.339 c -5.715,0 -8.601,-2.376 -8.657,-7.129 0,-4.696 2.857,-7.044 8.572,-7.044 z" style="fill:#ffffff;fill-rule:nonzero;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,558.21573,274.05453)"/>
+      <path d="m 0,0 c 17.429,0 33.283,-6.707 45.154,-17.665 0.526,-0.485 1.209,-0.761 1.925,-0.761 h 11.969 c 3.004,-0.055 5.801,-0.315 8.388,-0.778 2.691,-0.481 4.434,2.724 2.571,4.725 C 56.037,0.528 36.12,9.921 14,9.921 3.411,9.921 -6.673,7.768 -15.841,3.876 -18.999,2.536 -17.555,-2.251 -14.203,-1.521 -9.627,-0.525 -4.875,0 0,0" style="fill:#162f65;fill-rule:nonzero;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,516.5144,173.69333)"/>
+      <path d="m 0,0 -0.469,-0.079 h -0.475 -18.649 c -0.717,0 -1.402,-0.278 -1.928,-0.765 -11.881,-11.005 -27.769,-17.745 -45.242,-17.745 -4.842,0 -9.562,0.518 -14.109,1.5 -3.365,0.728 -4.814,-4.073 -1.644,-5.414 9.145,-3.868 19.198,-6.007 29.753,-6.007 21.808,0 41.483,9.123 55.423,23.758 C 4.564,-2.753 2.821,0.482 0.099,0.017 0.066,0.011 0.033,0.006 0,0" style="fill:#162f65;fill-rule:nonzero;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,605.5312,326.54547)"/>
+      <path d="m 0,0 c -31.87,0 -59.897,16.44 -76.075,41.298 -0.527,0.81 -1.418,1.307 -2.385,1.307 l -23.559,0.001 c -3.175,0.06 -6.099,0.429 -8.765,1.097 -2.441,0.611 -4.407,-1.964 -3.177,-4.16 17.946,-32.05 52.224,-53.716 91.567,-53.716 14.196,0 27.732,2.821 40.079,7.933 4.332,1.794 2.414,8.35 -2.207,7.556 C 10.448,0.451 5.277,0 0,0" style="fill:#efab28;fill-rule:nonzero;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,328.81893,383.4572)"/>
+      <path d="m 0,0 0.141,0.007 h 23.624 c 0.966,0 1.857,0.497 2.383,1.308 16.17,24.905 44.223,41.381 76.129,41.381 5.232,0 10.359,-0.442 15.348,-1.293 4.694,-0.8 6.531,5.808 2.127,7.62 -12.29,5.057 -25.753,7.847 -39.868,7.847 -39.537,0 -73.96,-21.878 -91.833,-54.186 -1.235,-2.233 0.851,-4.793 3.3,-4.076 C -6.018,-0.623 -3.132,-0.155 0,0" style="fill:#efab28;fill-rule:nonzero;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,192.4492,198.496)"/>
+      <path d="m 0,0 c -62.621,0 -113.386,50.765 -113.386,113.386 0,62.621 50.765,113.386 113.386,113.386 2.851,0 5.677,-0.108 8.475,-0.316 1.802,-0.134 3.264,1.429 3.007,3.217 -0.206,1.43 -0.737,5.125 -1.18,8.212 l -3.906,27.187 c -0.443,3.087 -3.338,5.924 -6.432,6.306 0,0 -9.782,1.208 -15.838,1.208 -8.253,0 -15.853,-1.094 -15.853,-1.094 -3.086,-0.445 -5.974,-3.333 -6.417,-6.42 l -3.906,-27.187 c -0.443,-3.087 -3.236,-6.39 -6.205,-7.341 l -27.536,-11.385 c -2.766,-1.439 -7.071,-1.088 -9.567,0.781 l -21.992,16.467 c -2.496,1.869 -6.581,1.87 -9.077,10e-4 0,0 -6.148,-4.6 -11.984,-10.436 -4.282,-4.282 -10.345,-12.053 -10.345,-12.053 -1.918,-2.458 -1.958,-6.512 -0.089,-9.008 l 16.456,-21.978 c 1.869,-2.496 2.22,-6.8 0.779,-9.566 l -11.41,-27.557 c -0.952,-2.969 -4.257,-5.761 -7.343,-6.204 l -27.148,-3.9 c -3.086,-0.443 -5.975,-3.331 -6.419,-6.417 0,0 -1.095,-7.6 -1.095,-15.853 0,-6.057 1.208,-15.838 1.208,-15.838 0.382,-3.095 3.22,-5.989 6.306,-6.433 l 27.125,-3.896 c 3.087,-0.444 6.389,-3.236 7.339,-6.206 l 11.406,-27.603 c 1.439,-2.766 1.087,-7.071 -0.782,-9.567 L -138.845,21.96 c -1.869,-2.496 -1.87,-6.581 -0.002,-9.078 0,0 4.6,-6.147 10.436,-11.983 4.283,-4.283 12.053,-10.345 12.053,-10.345 2.459,-1.919 6.512,-1.959 9.008,-0.09 l 21.919,16.413 c 2.496,1.869 6.801,2.219 9.566,0.779 L -48.24,-3.775 c 2.969,-0.951 5.761,-4.255 6.205,-7.341 l 3.891,-27.085 c 0.443,-3.086 3.331,-5.975 6.417,-6.42 0,0 7.6,-1.094 15.853,-1.094 6.055,0 15.832,1.207 15.832,1.207 3.095,0.382 5.99,3.22 6.434,6.306 l 2.339,16.257 c 0.444,3.087 1.157,8.048 1.585,11.026 0.427,2.978 0.778,5.415 0.778,5.415 0.001,0 0.171,1.174 0.377,2.61 C 11.728,-1.11 10.27,0.449 8.473,0.315 5.676,0.107 2.85,0 0,0" style="fill:#151d3b;fill-rule:nonzero;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,298.96067,413.69333)"/>
+      <path d="m 0,0 c -3.086,0.443 -6.391,3.235 -7.343,6.205 l -7.439,17.987 c -1.441,2.766 -1.091,7.07 0.778,9.566 l 10.599,14.155 c 1.869,2.496 1.828,6.549 -0.09,9.008 0,0 -3.656,4.686 -6.86,7.89 -4.366,4.366 -7.821,6.951 -7.821,6.951 -2.497,1.868 -6.581,1.868 -9.077,-0.001 L -41.418,61.154 c -2.496,-1.869 -6.801,-2.22 -9.567,-0.781 l -17.971,7.422 c -2.97,0.951 -5.762,4.254 -6.206,7.341 l -2.515,17.51 c -0.444,3.087 -3.331,5.976 -6.418,6.42 0,0 -4.271,0.615 -10.445,0.615 -4.531,0 -10.43,-0.728 -10.43,-0.728 -3.095,-0.382 -5.99,-3.22 -6.433,-6.307 l -2.515,-17.51 c -0.444,-3.087 -0.876,-6.097 -0.961,-6.691 -0.256,-1.777 1.188,-3.328 2.98,-3.213 1.813,0.117 3.642,0.177 5.484,0.177 46.845,0 84.82,-37.975 84.82,-84.82 0,-46.845 -37.975,-84.82 -84.82,-84.82 -1.834,0 -3.654,0.059 -5.459,0.175 -1.8,0.115 -3.251,-1.444 -2.994,-3.229 0.084,-0.585 0.153,-1.064 0.153,-1.064 0.001,0 0.259,-1.79 0.573,-3.978 0.314,-2.188 0.935,-6.503 1.379,-9.589 l 1.363,-9.479 c 0.444,-3.087 3.34,-5.924 6.434,-6.306 0,0 5.896,-0.728 10.426,-0.728 6.174,0 10.445,0.615 10.445,0.615 3.087,0.444 5.974,3.333 6.418,6.42 l 2.504,17.433 c 0.444,3.087 3.236,6.39 6.205,7.341 l 18.038,7.456 c 2.766,1.44 7.07,1.09 9.566,-0.779 l 14.111,-10.566 c 2.496,-1.869 6.549,-1.828 9.008,0.09 0,0 4.686,3.656 7.89,6.86 4.366,4.366 6.951,7.821 6.951,7.821 1.868,2.497 1.868,6.581 -10e-4,9.077 l -10.574,14.121 c -1.869,2.496 -2.22,6.801 -0.781,9.567 l 7.438,18.022 c 0.95,2.969 4.252,5.762 7.339,6.205 l 17.463,2.509 c 3.087,0.444 5.925,3.338 6.307,6.433 0,0 0.728,5.899 0.728,10.43 0,6.174 -0.615,10.445 -0.615,10.445 -0.444,3.087 -3.333,5.975 -6.42,6.418 z" style="fill:#151d3b;fill-rule:nonzero;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,677.3624,236.6032)"/>
+    </svg>
+    <div class="hdr-logo">
+      <span class="hdr-num">FRC 6328</span>
+      <span class="hdr-sub">Mechanical Advantage</span>
+    </div>
+    <div class="hdr-divider"></div>
+    <span class="hdr-title">Manufacturing Pipeline</span>
+    <span class="doc-badge" id="doc-label">No document</span>
+  </header>
+
+  <div class="toolbar">
+    <div class="doc-info" id="doc-info">Open an OnShape document to load parts</div>
+    <button class="btn btn-secondary btn-sm" onclick="loadParts()">↻ Refresh</button>
+    <button class="btn btn-secondary btn-sm" onclick="selectAll()">Select All</button>
+    <button class="btn btn-secondary btn-sm" onclick="clearSelection()">Clear</button>
+  </div>
+
+  <div class="parts-area">
+    <h2>Parts in Document</h2>
+    <div class="part-list" id="part-list">
+      <div class="empty-state">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block;opacity:0.35"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+        Click <strong>Refresh</strong> to load parts from the current OnShape document
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <span class="sel-count" id="sel-count">0 parts selected</span>
+    <button class="btn btn-primary" id="submit-btn" disabled onclick="startSubmission()">Create Cards →</button>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">Part Details</h2>
+      <span class="modal-progress" id="modal-progress"></span>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="skipPart()">Skip</button>
+      <button class="btn btn-primary" id="modal-next-btn" onclick="submitPart()">Submit & Next →</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const OPTIONS = {
+  project:   ['Dev Bot', 'Prototype', 'Comp Bot', 'Spare', 'Off-Season', 'Demo', 'Other'],
+  machine:   ['CNC Router', 'CNC Mill', 'Lathe', '3D Printer', 'Laser Cutter', 'Bandsaw', 'Hand Tools', 'Other'],
+  material:  ['Aluminum', 'Polycarb', 'PLA+', 'Steel (Mild)', 'Carbon Fiber', 'Other'],
+  thickness: ['1/16 in', '1/8 in', '3/16 in', '1/4 in', '3/8 in', '1/2 in', '0.09 in', 'Other'],
+  partType:  ['Plate', 'Hex Shaft', 'Round Shaft', 'Billet', 'Tube 1×1"', 'Tube 1×2"', 'Tube 2×2"', 'Other'],
+  finish:    ['None', 'Black', 'Blue', 'Yellow', 'Pink', 'Other'],
+};
+
+let CONFIG = { osKey:'', osSecret:'', slackToken:'', slackChannel:'', demo:false };
+let pillState = {}, attachedFile = null;
+
+function saveConfig() {
+  CONFIG.osKey = v('cfg-os-key'); CONFIG.osSecret = v('cfg-os-secret');
+  CONFIG.slackToken = v('cfg-slack-token'); CONFIG.slackChannel = v('cfg-slack-channel');
+  if (!CONFIG.osKey || !CONFIG.osSecret || !CONFIG.slackToken || !CONFIG.slackChannel) { showToast('Please fill all fields', true); return; }
+  launchApp();
+}
+function useDemoMode() { CONFIG.demo = true; launchApp(); }
+function launchApp() {
+  document.getElementById('config-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  CONFIG.demo ? loadDemoParts() : initOnShape();
+}
+function v(id) { return document.getElementById(id).value.trim(); }
+
+// ── PILLS ──
+function renderPills(key, options, placeholder='Custom...') {
+  const cur = pillState[key] || '';
+  const isCustom = cur && !options.includes(cur);
+  return `
+    <div class="pill-group" id="pills-${key}">
+      ${options.map(o => `<span class="pill${cur===o?' active':''}" onclick="selectPill('${key}','${o}')">${o}</span>`).join('')}
+    </div>
+    <div class="pill-custom">
+      <input type="text" id="custom-${key}" placeholder="${placeholder}" value="${isCustom?cur:''}" oninput="pillCustomInput('${key}',this.value)"/>
+    </div>`;
+}
+function selectPill(key, val) {
+  pillState[key] = val;
+  document.querySelectorAll(`#pills-${key} .pill`).forEach(p => p.classList.toggle('active', p.textContent === val));
+  document.getElementById(`custom-${key}`).value = '';
+}
+function pillCustomInput(key, val) {
+  pillState[key] = val;
+  document.querySelectorAll(`#pills-${key} .pill`).forEach(p => p.classList.remove('active'));
+}
+function getPillVal(key) { return pillState[key] || ''; }
+
+// ── ONSHAPE ──
+let docId='', wvmType='w', wvmId='', elementId='';
+function initOnShape() {
+  const p = new URLSearchParams(window.location.search);
+  docId = p.get('documentId') || ''; wvmType = p.get('versionId') ? 'v' : 'w';
+  wvmId = p.get('workspaceId') || p.get('versionId') || ''; elementId = p.get('elementId') || '';
+  if (docId) { document.getElementById('doc-label').textContent = docId.substring(0,8)+'...'; loadParts(); }
+  else document.getElementById('doc-info').textContent = 'No document context — open from an OnShape document';
+  window.addEventListener('message', e => {
+    if (e.data?.messageName === 'applicationElementInfo') { docId=e.data.documentId; wvmId=e.data.workspaceId; elementId=e.data.elementId; loadParts(); }
+  });
+}
+async function onshapeFetch(path) {
+  const resp = await fetch(`https://cad.onshape.com/api/v6${path}`, {
+    headers: { 'Authorization':'Basic '+btoa(`${CONFIG.osKey}:${CONFIG.osSecret}`), 'Accept':'application/json' }
+  });
+  if (!resp.ok) throw new Error(`OnShape API ${resp.status}`);
+  return resp.json();
+}
+async function loadParts() {
+  if (CONFIG.demo) { loadDemoParts(); return; }
+  const list = document.getElementById('part-list');
+  list.innerHTML = '<div class="empty-state"><span class="spinner"></span> Loading parts...</div>';
+  try {
+    const data = await onshapeFetch(`/parts/d/${docId}/${wvmType}/${wvmId}`);
+    renderParts(data.map(p => ({ id:p.partId, name:p.name||'Unnamed Part', studio:p.elementId, partNumber:p.partNumber||'' })));
+  } catch(err) {
+    list.innerHTML = `<div class="empty-state" style="color:#ef4444">Failed to load: ${err.message}</div>`;
+  }
+}
+function loadDemoParts() {
+  renderParts([
+    {id:'p1',name:'Base Plate',studio:'e1',partNumber:'BP-001'},
+    {id:'p2',name:'Drive Shaft',studio:'e1',partNumber:'DS-002'},
+    {id:'p3',name:'Motor Mount',studio:'e2',partNumber:'MM-003'},
+    {id:'p4',name:'Side Panel L',studio:'e2',partNumber:'SP-004'},
+    {id:'p5',name:'Side Panel R',studio:'e2',partNumber:'SP-005'},
+    {id:'p6',name:'Crossmember Tube',studio:'e3',partNumber:'CT-006'},
+    {id:'p7',name:'Gusset Bracket',studio:'e3',partNumber:'GB-007'},
+  ]);
+}
+
+// ── PARTS LIST ──
+let parts=[], selected=new Set();
+function renderParts(data) {
+  parts=data; selected.clear(); updateSelCount();
+  const list=document.getElementById('part-list');
+  if (!parts.length) { list.innerHTML='<div class="empty-state">No parts found.</div>'; return; }
+  list.innerHTML='';
+  parts.forEach(p => {
+    const el=document.createElement('div'); el.className='part-item'; el.dataset.id=p.id;
+    el.innerHTML=`
+      <input type="checkbox" id="chk-${p.id}" onchange="togglePart('${p.id}',this.checked)"/>
+      <div style="flex:1;min-width:0">
+        <div class="part-name">${p.name}</div>
+        ${p.partNumber?`<div class="part-meta">#${p.partNumber}</div>`:''}
+      </div>
+      <span class="badge">Part</span>`;
+    el.addEventListener('click', e => { if(e.target.tagName==='INPUT') return; const c=document.getElementById(`chk-${p.id}`); c.checked=!c.checked; togglePart(p.id,c.checked); });
+    list.appendChild(el);
+  });
+}
+function togglePart(id,checked) {
+  checked?selected.add(id):selected.delete(id);
+  document.querySelector(`.part-item[data-id="${id}"]`)?.classList.toggle('selected',checked);
+  updateSelCount();
+}
+function selectAll() {
+  parts.forEach(p => { selected.add(p.id); document.querySelector(`.part-item[data-id="${p.id}"]`)?.classList.add('selected'); const c=document.getElementById(`chk-${p.id}`); if(c) c.checked=true; });
+  updateSelCount();
+}
+function clearSelection() {
+  selected.clear();
+  document.querySelectorAll('.part-item').forEach(el=>el.classList.remove('selected'));
+  document.querySelectorAll('.part-list input[type=checkbox]').forEach(c=>c.checked=false);
+  updateSelCount();
+}
+function updateSelCount() {
+  const n=selected.size;
+  document.getElementById('sel-count').textContent=`${n} part${n!==1?'s':''} selected`;
+  document.getElementById('submit-btn').disabled=n===0;
+}
+
+// ── FORM ──
+let queue=[], queueIdx=0;
+function startSubmission() { queue=parts.filter(p=>selected.has(p.id)); queueIdx=0; pillState={}; attachedFile=null; showPartForm(queue[0],0); }
+function showPartForm(part,idx) {
+  pillState={}; attachedFile=null;
+  const cadLink=(!CONFIG.demo&&docId)?`https://cad.onshape.com/documents/${docId}/${wvmType}/${wvmId}/e/${part.studio}`:'';
+  document.getElementById('modal-title').textContent=part.name;
+  document.getElementById('modal-progress').textContent=`${idx+1} of ${queue.length}`;
+  document.getElementById('modal-body').innerHTML=`
+    <label>Part Display Name <span class="required">*</span></label>
+    <input type="text" id="f-name" value="${part.name}"/>
+
+    <label>CAD Version <span class="required">*</span></label>
+    <input type="text" id="f-cad-version" placeholder="e.g. v12, 2024-11-03"/>
+
+    <hr class="section-divider"/>
+
+    <label>Project <span class="required">*</span></label>
+    ${renderPills('project', OPTIONS.project, 'Custom project...')}
+
+    <label>Machine</label>
+    ${renderPills('machine', OPTIONS.machine, 'Custom machine...')}
+
+    <label>Material</label>
+    ${renderPills('material', OPTIONS.material, 'Custom material...')}
+
+    <label>Thickness of Material</label>
+    ${renderPills('thickness', OPTIONS.thickness, 'Custom thickness...')}
+
+    <label>Type of Part</label>
+    ${renderPills('partType', OPTIONS.partType, 'Custom type...')}
+
+    <hr class="section-divider"/>
+
+    <label>Quantity <span class="required">*</span></label>
+    <input type="number" id="f-qty" min="1" value="1" style="max-width:100px"/>
+
+    <label>Finish / Powder Coat Color</label>
+    ${renderPills('finish', OPTIONS.finish, 'Custom color...')}
+
+    <hr class="section-divider"/>
+
+    <label>Link to CAD</label>
+    <input type="url" id="f-cad-link" value="${cadLink}" placeholder="https://cad.onshape.com/documents/..."/>
+
+    <label>Drawing / Part File (.step, .pdf, .dxf)</label>
+    <div class="file-drop" id="file-drop" onclick="document.getElementById('f-file').click()" ondragover="fileDragOver(event)" ondrop="fileDrop(event)">
+      <input type="file" id="f-file" accept=".step,.stp,.pdf,.dxf,.dwg" onchange="fileSelected(this)"/>
+      <span id="file-drop-label">📎 Click or drag to attach a file</span>
+      <div class="file-name" id="file-name-display"></div>
+    </div>
+
+    <label>Assigned Student</label>
+    <input type="text" id="f-student" placeholder="e.g. Sean Tommasini"/>
+
+    <label>Details / Notes</label>
+    <textarea id="f-notes" placeholder="Special instructions, tolerances, references..."></textarea>
+  `;
+  document.getElementById('modal-overlay').classList.add('open');
+  document.getElementById('modal-next-btn').textContent=idx===queue.length-1?'✓ Submit':'Submit & Next →';
+}
+
+// ── FILE ──
+function fileSelected(input) { if(input.files[0]) setFile(input.files[0]); }
+function fileDragOver(e) { e.preventDefault(); document.getElementById('file-drop').classList.add('dragover'); }
+function fileDrop(e) { e.preventDefault(); document.getElementById('file-drop').classList.remove('dragover'); if(e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]); }
+function setFile(file) {
+  attachedFile=file;
+  document.getElementById('file-name-display').textContent=`✓ ${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+  document.getElementById('file-drop-label').textContent='📎 Click or drag to change file';
+}
+
+// ── SUBMIT ──
+function skipPart() { advanceQueue(); }
+async function submitPart() {
+  const name=v('f-name'), qty=v('f-qty'), project=getPillVal('project'), cadVer=v('f-cad-version');
+  if (!name||!qty||!project||!cadVer) { showToast('Fill in required fields (*)', true); return; }
+  const btn=document.getElementById('modal-next-btn');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Sending...';
+  const payload={ name, cadVersion:cadVer, project, machine:getPillVal('machine'), material:getPillVal('material'), thickness:getPillVal('thickness'), partType:getPillVal('partType'), qty, finish:getPillVal('finish'), cadLink:v('f-cad-link'), fileName:attachedFile?attachedFile.name:'', student:v('f-student'), notes:v('f-notes'), partId:queue[queueIdx].id };
+  try {
+    if(CONFIG.demo) { await new Promise(r=>setTimeout(r,700)); console.log('DEMO:', payload); }
+    else await postToSlack(payload);
+    showToast(`✓ Card created for "${name}"`);
+    advanceQueue();
+  } catch(err) { showToast('Slack error: '+err.message, true); }
+  finally { btn.disabled=false; btn.textContent=queueIdx>=queue.length-1?'✓ Submit':'Submit & Next →'; }
+}
+function advanceQueue() {
+  queueIdx++;
+  if(queueIdx>=queue.length) { document.getElementById('modal-overlay').classList.remove('open'); showToast(`🎉 All ${queue.length} card${queue.length!==1?'s':''} submitted!`); clearSelection(); }
+  else showPartForm(queue[queueIdx],queueIdx);
+}
+
+// ── SLACK ──
+async function postToSlack(p) {
+  const fields=[['CAD Version',p.cadVersion],['Project',p.project],['Machine',p.machine||'TBD'],['Material',p.material||'TBD'],['Thickness',p.thickness||'TBD'],['Type of Part',p.partType||'TBD'],['Quantity',p.qty],['Finish',p.finish||'None'],['Assigned To',p.student||'Unassigned'],['CAD Link',p.cadLink?`<${p.cadLink}|Open in OnShape>`:'N/A'],['Part File',p.fileName||'None attached']];
+  const body={ channel:CONFIG.slackChannel, text:`🔧 NEW MANUFACTURING CARD: ${p.name}`,
+    blocks:[
+      {type:'header',text:{type:'plain_text',text:`🔧 ${p.name}`,emoji:true}},
+      {type:'section',fields:fields.slice(0,8).map(([k,val])=>({type:'mrkdwn',text:`*${k}*\n${val}`}))},
+      {type:'section',fields:fields.slice(8).map(([k,val])=>({type:'mrkdwn',text:`*${k}*\n${val}`}))},
+      ...(p.notes?[{type:'section',text:{type:'mrkdwn',text:`*Notes*\n${p.notes}`}}]:[]),
+      {type:'divider'}
+    ]};
+  const resp=await fetch('https://slack.com/api/chat.postMessage',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${CONFIG.slackToken}`},body:JSON.stringify(body)});
+  const data=await resp.json();
+  if(!data.ok) throw new Error(data.error||'Unknown Slack error');
+}
+
+// ── TOAST ──
+let toastTimer;
+function showToast(msg,isError=false) {
+  const t=document.getElementById('toast'); t.textContent=msg; t.className=isError?'error show':'show';
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.className=isError?'error':'',3200);
+}
+</script>
+</body>
+</html>
