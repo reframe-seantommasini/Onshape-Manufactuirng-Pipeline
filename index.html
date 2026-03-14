@@ -56,7 +56,6 @@
 
   /* PARTS */
   .parts-area{flex:1;overflow-y:auto;padding:14px;}
-  .section-label{font-family:'Barlow Condensed',sans-serif;font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);}
   .part-list{display:flex;flex-direction:column;gap:6px;}
   .part-item{background:var(--blue-dk);border:1px solid var(--border);border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:border-color .15s,background .15s;}
   .part-item:hover{border-color:var(--gold);background:#1c2d5a;}
@@ -174,7 +173,6 @@
     <span class="doc-badge" id="doc-label">No document</span>
   </header>
 
-  <!-- Live selection banner -->
   <div id="selection-banner">
     <div class="sel-dot"></div>
     <span id="sel-banner-text">Parts selected in Studio</span>
@@ -190,7 +188,7 @@
   <div class="tab-content active" id="tab-parts">
     <div class="toolbar">
       <div class="doc-info" id="doc-info">Select parts in Part Studio or tap ↻ to load all</div>
-      <button class="btn btn-secondary btn-sm" onclick="loadParts()" title="Refresh all parts">↻</button>
+      <button class="btn btn-secondary btn-sm" onclick="loadParts()" title="Refresh">↻</button>
       <button class="btn btn-secondary btn-sm" onclick="selectAll()">All</button>
       <button class="btn btn-secondary btn-sm" onclick="clearSelection()">Clear</button>
     </div>
@@ -244,7 +242,7 @@ const OPTIONS = {
 
 let CONFIG={osKey:'',osSecret:'',slackToken:'',slackChannel:'',demo:false};
 let pillState={}, attachedFile=null, submissionHistory=[];
-let studioSelectedIds=[];  // part IDs live-selected in OnShape Part Studio
+let studioSelectedIds=[];
 let docId='', wvmType='w', wvmId='', elementId='';
 let parts=[], selected=new Set();
 let queue=[], queueIdx=0;
@@ -282,22 +280,17 @@ function initOnShape(){
     document.getElementById('doc-label').textContent=docId.substring(0,8)+'...';
     document.getElementById('doc-info').textContent='doc: '+docId.substring(0,12)+'…';
   }
-  // Listen for messages from OnShape parent frame
   window.addEventListener('message', handleOnShapeMessage);
-  // Signal to OnShape that the panel is ready
   try{ window.parent.postMessage({messageName:'ready'},'https://cad.onshape.com'); }catch(e){}
   if(docId) loadParts();
 }
 
 // ── ONSHAPE MESSAGE HANDLER ──
-// OnShape sends selection changes and document context via postMessage
 function handleOnShapeMessage(e){
   if(e.origin!=='https://cad.onshape.com') return;
   const msg=e.data;
   if(!msg||!msg.messageName) return;
-
   switch(msg.messageName){
-    // Initial document context injected when panel opens
     case 'applicationElementInfo':
     case 'documentInfo':
       docId=msg.documentId||docId;
@@ -306,8 +299,6 @@ function handleOnShapeMessage(e){
       document.getElementById('doc-label').textContent=docId.substring(0,8)+'...';
       loadParts();
       break;
-
-    // Part Studio selection changed — OnShape sends an array of selected entity IDs
     case 'selectionchange':
     case 'updateContext':
       if(msg.selection && Array.isArray(msg.selection)){
@@ -321,7 +312,6 @@ function handleOnShapeMessage(e){
   }
 }
 
-// Called when OnShape tells us the user changed their Part Studio selection
 function handleStudioSelectionChange(ids){
   studioSelectedIds=ids;
   const banner=document.getElementById('selection-banner');
@@ -334,15 +324,10 @@ function handleStudioSelectionChange(ids){
   }
 }
 
-// "Use Selection" button — pre-select those parts in the list
 function useStudioSelection(){
   if(!studioSelectedIds.length) return;
-  // If parts aren't loaded yet, load them first then auto-select
-  if(!parts.length){
-    loadParts().then(()=>autoSelectFromStudio());
-  } else {
-    autoSelectFromStudio();
-  }
+  if(!parts.length){ loadParts().then(()=>autoSelectFromStudio()); }
+  else { autoSelectFromStudio(); }
   document.getElementById('selection-banner').classList.remove('visible');
   switchTab('parts');
 }
@@ -357,7 +342,7 @@ function autoSelectFromStudio(){
   });
   updateSelCount();
   if(selected.size) showToast(`${selected.size} part${selected.size!==1?'s':''} loaded from selection`);
-  else showToast('None of the selected parts were found in the list — try refreshing ↻',true);
+  else showToast('None of the selected parts matched — try refreshing ↻',true);
 }
 
 // ── ONSHAPE API ──
@@ -390,7 +375,7 @@ function loadDemoParts(){
     {id:'p6',name:'Crossmember Tube',studio:'e3',partNumber:'CT-006'},
     {id:'p7',name:'Gusset Bracket',studio:'e3',partNumber:'GB-007'},
   ]);
-  // Simulate a studio selection arriving after 1.5s in demo mode
+  // Simulate a studio selection in demo mode
   setTimeout(()=>handleStudioSelectionChange(['p1','p3','p6']), 1500);
 }
 
@@ -411,7 +396,9 @@ function renderParts(data){
         <div class="part-name">${p.name}</div>
         ${p.partNumber?`<div class="part-meta">#${p.partNumber}</div>`:''}
       </div>
-      ${fromStudio?'<span class="badge" style="background:#4ade8022;color:#4ade80;border-color:#4ade8055">Selected</span>':'<span class="badge">Part</span>'}`;
+      ${fromStudio
+        ? '<span class="badge" style="background:#4ade8022;color:#4ade80;border-color:#4ade8055">Selected</span>'
+        : '<span class="badge">Part</span>'}`;
     el.addEventListener('click',e=>{
       if(e.target.tagName==='INPUT') return;
       const c=document.getElementById('chk-'+p.id);
