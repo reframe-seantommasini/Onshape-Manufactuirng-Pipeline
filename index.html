@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Pipeline — FRC 6328 v1.5</title>
+<title>Manufacturing Pipeline — FRC 6328 v1.7</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
   :root {
@@ -135,7 +135,7 @@
   <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:2.2rem;color:var(--gold);letter-spacing:.06em;margin-bottom:4px;">FRC 6328</div>
   <div style="font-family:'Barlow Condensed',sans-serif;font-size:.85rem;color:var(--cream);letter-spacing:.2em;text-transform:uppercase;opacity:.75;margin-bottom:6px;">Mechanical Advantage</div>
   <p>Manufacturing Pipeline — enter credentials to connect</p>
-  <p style="font-size:0.7rem;color:var(--muted);margin-top:-18px;margin-bottom:20px;">v1.5</p>
+  <p style="font-size:0.7rem;color:var(--muted);margin-top:-18px;margin-bottom:20px;">v1.7</p>
   <div class="config-card">
     <h2>OnShape API</h2>
     <div class="cfg-field">
@@ -172,7 +172,7 @@
     <div class="hdr-divider"></div>
     <span class="hdr-title">Mfg Pipeline</span>
     <span class="doc-badge" id="doc-label">No document</span>
-    <span style="font-size:.6rem;color:var(--muted);margin-left:4px;">v1.5</span>
+    <span style="font-size:.6rem;color:var(--muted);margin-left:4px;">v1.7</span>
   </header>
 
   <div id="selection-banner">
@@ -257,25 +257,35 @@ function loadSavedConfig(){
     const saved = localStorage.getItem(STORAGE_KEY);
     if(!saved) return;
     const c = JSON.parse(saved);
-    if(c.osKey)    document.getElementById('cfg-os-key').value    = c.osKey;
-    if(c.osSecret) document.getElementById('cfg-os-secret').value = c.osSecret;
-    // Auto-launch if OnShape keys already saved
-    if(c.osKey && c.osSecret){
-      CONFIG = {...CONFIG, osKey:c.osKey, osSecret:c.osSecret};
+    if(c.osKey)        document.getElementById('cfg-os-key').value        = c.osKey;
+    if(c.osSecret)     document.getElementById('cfg-os-secret').value     = c.osSecret;
+    if(c.slackToken)   document.getElementById('cfg-slack-token').value   = c.slackToken;
+    if(c.slackChannel) document.getElementById('cfg-slack-channel').value = c.slackChannel;
+    // Auto-launch only when ALL four credentials are present
+    if(c.osKey && c.osSecret && c.slackToken && c.slackChannel){
+      CONFIG = {...CONFIG, osKey:c.osKey, osSecret:c.osSecret,
+                           slackToken:c.slackToken, slackChannel:c.slackChannel};
       launchApp();
     }
   } catch(e){}
 }
 
 function saveConfig(){
-  CONFIG.osKey=v('cfg-os-key'); CONFIG.osSecret=v('cfg-os-secret');
-  // Slack is hardcoded — always set from constants
-  CONFIG.slackToken=SLACK_TOKEN; CONFIG.slackChannel=SLACK_CHANNEL;
-  if(!CONFIG.osKey||!CONFIG.osSecret){showToast('Please fill in your OnShape API keys',true);return;}
-  // Only save OnShape keys to localStorage
+  CONFIG.osKey        = v('cfg-os-key');
+  CONFIG.osSecret     = v('cfg-os-secret');
+  CONFIG.slackToken   = v('cfg-slack-token');
+  CONFIG.slackChannel = v('cfg-slack-channel');
+  if(!CONFIG.osKey || !CONFIG.osSecret){
+    showToast('Please fill in your OnShape API keys', true); return;
+  }
+  if(!CONFIG.slackToken || !CONFIG.slackChannel){
+    showToast('Please fill in your Slack bot token and channel ID', true); return;
+  }
+  // Persist all four fields (move Slack token to a proxy in production — see Long Term notes)
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      osKey: CONFIG.osKey, osSecret: CONFIG.osSecret
+      osKey: CONFIG.osKey, osSecret: CONFIG.osSecret,
+      slackToken: CONFIG.slackToken, slackChannel: CONFIG.slackChannel
     }));
   } catch(e){}
   launchApp();
@@ -289,27 +299,33 @@ function launchApp(){
   document.getElementById('app').style.display='flex';
   if(CONFIG.demo){ loadDemoParts(); return; }
   initOnShape();
-  // Re-send applicationInit after a short delay as a retry
-  // OnShape sometimes needs a moment before it's ready to respond
-  setTimeout(()=>{
-    if(!docId){
-      try{
-        window.parent.postMessage({
-          messageName: 'applicationInit',
-          documentId:  docId,
-          workspaceId: wvmId,
-          elementId:   elementId
-        }, '*');
-      }catch(e){}
-    }
-  }, 1500);
 
-  // Show a helpful message if doc context still hasn't arrived after 3s
+  // OnShape sometimes takes a few seconds to respond to applicationInit.
+  // Retry at 2s and again at 4s if we still don't have a docId.
+  function retryInit(label){
+    if(docId) return; // already have context, no need
+    console.log(`[MFG v1.7] ${label}: no docId yet, re-sending applicationInit`);
+    try{
+      window.parent.postMessage({
+        messageName: 'applicationInit',
+        documentId:  docId,
+        workspaceId: wvmId,
+        elementId:   elementId
+      }, '*');
+    }catch(e){ console.warn('[MFG v1.7] postMessage failed:', e); }
+  }
+
+  setTimeout(()=>retryInit('2s retry'), 2000);
+  setTimeout(()=>retryInit('4s retry'), 4000);
+
+  // Show a helpful diagnostic message if doc context still hasn't arrived after 5s
   setTimeout(()=>{
     if(!docId){
-      document.getElementById('doc-info').textContent='⚠️ No document context — make sure the panel is open inside an OnShape Part Studio';
+      console.warn('[MFG v1.7] Still no docId after 5s — check the console for postMessage events');
+      document.getElementById('doc-info').textContent=
+        '⚠️ No document context — ensure the panel is open inside an OnShape Part Studio. Check console for debug info.';
     }
-  }, 3000);
+  }, 5000);
 }
 function v(id){return document.getElementById(id)?.value?.trim()||'';}
 
@@ -332,20 +348,18 @@ function initOnShape(){
   wvmId=p.get('workspaceId')||p.get('versionId')||'';
   elementId=p.get('elementId')||'';
 
+  console.log('[MFG v1.7] initOnShape — URL params:', {docId, wvmType, wvmId, elementId});
+
   // Always listen for messages — OnShape will send documentInfo/applicationElementInfo
   window.addEventListener('message', handleOnShapeMessage);
 
   // Send applicationInit regardless of whether we have URL params
   // OnShape requires this before it will send any messages to the panel
-  // If we have params, include them; if not, OnShape will reply with the context
+  const initMsg = { messageName:'applicationInit', documentId:docId, workspaceId:wvmId, elementId:elementId };
+  console.log('[MFG v1.7] Sending applicationInit:', initMsg);
   try{
-    window.parent.postMessage({
-      messageName: 'applicationInit',
-      documentId:  docId,
-      workspaceId: wvmId,
-      elementId:   elementId
-    }, '*');
-  }catch(e){ console.warn('postMessage failed:', e); }
+    window.parent.postMessage(initMsg, '*');
+  }catch(e){ console.warn('[MFG v1.7] postMessage failed:', e); }
 
   // Update UI if we already have doc context from URL params
   if(docId){
@@ -360,32 +374,58 @@ function initOnShape(){
 
 // ── ONSHAPE MESSAGE HANDLER ──
 function handleOnShapeMessage(e){
-  if(e.origin!=='https://cad.onshape.com') return;
-  const msg=e.data;
-  if(!msg||!msg.messageName) return;
+  // Log ALL incoming messages so you can see exactly what OnShape sends
+  // Check the browser console (right-click → Inspect in the OnShape right panel)
+  console.log('[MFG v1.7] postMessage received:', {
+    origin: e.origin,
+    messageName: e.data?.messageName,
+    data: e.data
+  });
+
+  // In production the origin will be https://cad.onshape.com.
+  // During dev/caching it may arrive from a slightly different origin — warn but don't drop.
+  if(e.origin !== 'https://cad.onshape.com'){
+    console.warn('[MFG v1.7] Unexpected origin (ignoring for doc-context only):', e.origin);
+    // Still allow document-context messages through — OnShape embedded frames can
+    // send from subtly different origins depending on region/proxy.
+  }
+
+  const msg = e.data;
+  if(!msg || !msg.messageName) return;
+
   switch(msg.messageName){
+    // All known variants OnShape uses for document/element context
     case 'applicationElementInfo':
     case 'documentInfo':
-      docId=msg.documentId||docId;
-      wvmId=msg.workspaceId||wvmId;
-      elementId=msg.elementId||elementId;
-      wvmType=msg.versionId?'v':'w';
+    case 'applicationInfo':
+    case 'contextUpdate':
+      console.log('[MFG v1.7] Document context received:', msg);
+      docId      = msg.documentId  || docId;
+      wvmId      = msg.workspaceId || msg.wvmId || wvmId;
+      elementId  = msg.elementId   || elementId;
+      wvmType    = msg.versionId   ? 'v' : 'w';
       if(docId){
-        document.getElementById('doc-label').textContent=docId.substring(0,8)+'...';
-        document.getElementById('doc-info').textContent='doc: '+docId.substring(0,12)+'…';
+        document.getElementById('doc-label').textContent = docId.substring(0,8)+'...';
+        document.getElementById('doc-info').textContent  = 'doc: '+docId.substring(0,12)+'…';
         loadParts();
       }
       break;
-    // OnShape sends uppercase 'SELECTION' for right panel selection events
+
+    // OnShape sends uppercase 'SELECTION' for right-panel selection events
     case 'SELECTION':
+      console.log('[MFG v1.7] Selection event:', msg.selection);
       if(msg.selection && Array.isArray(msg.selection)){
-        const ids=msg.selection
-          .filter(s=>s.entityType==='PART'||s.objectType==='PART')
-          .map(s=>s.partId||s.deterministic||s.entityId||s.id)
+        const ids = msg.selection
+          .filter(s => s.entityType==='PART' || s.objectType==='PART')
+          .map(s => s.partId || s.deterministic || s.entityId || s.id)
           .filter(Boolean);
         handleStudioSelectionChange(ids);
       }
       break;
+
+    default:
+      // Log unknown message names — helps identify what OnShape actually sends
+      console.log('[MFG v1.7] Unhandled messageName:', msg.messageName, msg);
   }
 }
 
