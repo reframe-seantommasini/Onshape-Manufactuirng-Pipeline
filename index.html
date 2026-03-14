@@ -145,9 +145,16 @@
       <label>Secret Key</label>
       <input type="text" id="cfg-os-secret" placeholder="Your OnShape secret key"/>
     </div>
-    <div style="margin-top:18px;padding:10px 12px;background:#1a3a1a;border:1px solid #2d6b2d;border-radius:8px;display:flex;align-items:center;gap:8px;">
-      <span style="color:#4ade80;font-size:1rem;">✓</span>
-      <span style="font-family:'Barlow Condensed',sans-serif;font-size:0.8rem;color:#4ade80;letter-spacing:0.06em;text-transform:uppercase;font-weight:700;">Slack pre-configured for FRC 6328</span>
+    <h2 style="margin-top:18px">Slack</h2>
+    <div class="cfg-field">
+      <label>Bot Token</label>
+      <input type="text" id="cfg-slack-token" placeholder="xoxb-..."/>
+      <div class="cfg-note">From your Slack app's OAuth & Permissions page</div>
+    </div>
+    <div class="cfg-field">
+      <label>Channel ID</label>
+      <input type="text" id="cfg-slack-channel" placeholder="C0XXXXXXXXX"/>
+      <div class="cfg-note">Right-click channel → View channel details → Copy ID</div>
     </div>
     <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="saveConfig()">Connect & Launch</button>
     <button class="btn btn-secondary" style="width:100%;margin-top:8px" onclick="useDemoMode()">Demo Mode (no credentials)</button>
@@ -233,11 +240,7 @@ const OPTIONS = {
   finish:    ['None','Black','Blue','Yellow','Pink','Other'],
 };
 
-// ── HARDCODED SLACK CONFIG — update these two values ──
-const SLACK_TOKEN   = 'xoxb-YOUR-TOKEN-HERE';
-const SLACK_CHANNEL = 'YOUR-CHANNEL-ID-HERE';
-
-let CONFIG={osKey:'',osSecret:'',slackToken:SLACK_TOKEN,slackChannel:SLACK_CHANNEL,demo:false};
+let CONFIG={osKey:'',osSecret:'',slackToken:'',slackChannel:'',demo:false};
 let pillState={}, attachedFile=null, submissionHistory=[];
 let studioSelectedIds=[];
 let docId='', wvmType='w', wvmId='', elementId='';
