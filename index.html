@@ -281,7 +281,15 @@ function initOnShape(){
     document.getElementById('doc-info').textContent='doc: '+docId.substring(0,12)+'…';
   }
   window.addEventListener('message', handleOnShapeMessage);
-  try{ window.parent.postMessage({messageName:'ready'},'https://cad.onshape.com'); }catch(e){}
+  // applicationInit is required — OnShape won't send messages until it receives this
+  try{
+    window.parent.postMessage({
+      messageName: 'applicationInit',
+      documentId:  docId,
+      workspaceId: wvmId,
+      elementId:   elementId
+    }, '*');
+  }catch(e){}
   if(docId) loadParts();
 }
 
@@ -299,12 +307,12 @@ function handleOnShapeMessage(e){
       document.getElementById('doc-label').textContent=docId.substring(0,8)+'...';
       loadParts();
       break;
-    case 'selectionchange':
-    case 'updateContext':
+    // OnShape sends uppercase 'SELECTION' for right panel selection events
+    case 'SELECTION':
       if(msg.selection && Array.isArray(msg.selection)){
         const ids=msg.selection
           .filter(s=>s.entityType==='PART'||s.objectType==='PART')
-          .map(s=>s.partId||s.entityId||s.id)
+          .map(s=>s.partId||s.deterministic||s.entityId||s.id)
           .filter(Boolean);
         handleStudioSelectionChange(ids);
       }
