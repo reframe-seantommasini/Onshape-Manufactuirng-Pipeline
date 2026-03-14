@@ -248,11 +248,40 @@ let parts=[], selected=new Set();
 let queue=[], queueIdx=0;
 
 // ── CONFIG ──
+const STORAGE_KEY = 'mfg_pipeline_config';
+
+function loadSavedConfig(){
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if(!saved) return;
+    const c = JSON.parse(saved);
+    if(c.osKey)        document.getElementById('cfg-os-key').value      = c.osKey;
+    if(c.osSecret)     document.getElementById('cfg-os-secret').value   = c.osSecret;
+    if(c.slackToken)   document.getElementById('cfg-slack-token').value = c.slackToken;
+    if(c.slackChannel) document.getElementById('cfg-slack-channel').value = c.slackChannel;
+    // If all fields saved, auto-launch
+    if(c.osKey && c.osSecret && c.slackToken && c.slackChannel){
+      CONFIG = {...CONFIG, ...c};
+      launchApp();
+    }
+  } catch(e){}
+}
+
 function saveConfig(){
   CONFIG.osKey=v('cfg-os-key'); CONFIG.osSecret=v('cfg-os-secret');
   CONFIG.slackToken=v('cfg-slack-token'); CONFIG.slackChannel=v('cfg-slack-channel');
   if(!CONFIG.osKey||!CONFIG.osSecret||!CONFIG.slackToken||!CONFIG.slackChannel){showToast('Please fill all fields',true);return;}
+  // Persist to localStorage so students don't need to re-enter
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      osKey: CONFIG.osKey, osSecret: CONFIG.osSecret,
+      slackToken: CONFIG.slackToken, slackChannel: CONFIG.slackChannel
+    }));
+  } catch(e){}
   launchApp();
+}
+function clearSavedConfig(){
+  try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
 }
 function useDemoMode(){CONFIG.demo=true;launchApp();}
 function launchApp(){
@@ -261,6 +290,9 @@ function launchApp(){
   CONFIG.demo ? loadDemoParts() : initOnShape();
 }
 function v(id){return document.getElementById(id)?.value?.trim()||'';}
+
+// Run on page load — auto-fills and launches if credentials already saved
+window.addEventListener('DOMContentLoaded', loadSavedConfig);
 
 // ── TABS ──
 function switchTab(name){
@@ -523,22 +555,129 @@ function setFile(file){
   document.getElementById('file-drop-label').textContent='📎 Click or drag to change file';
 }
 
+// ── STEP EXPORT ──
+const STEP_TIMEOUT_MS = 20000; // skip file if export takes longer than 20s
+
+async function exportStepFile(part) {
+  if (CONFIG.demo) return null;
+  if (!docId || !wvmId || !part.studio) return null;
+
+  // 1. Request translation
+  const transResp = await fetch(
+    `https://cad.onshape.com/api/v6/partstudios/d/${docId}/w/${wvmId}/e/${part.studio}/translations`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Basic ' + btoa(CONFIG.osKey + ':' + CONFIG.osSecret),
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        formatName: 'STEP',
+        partIds: [part.id],
+        flattenAssemblies: false,
+        yAxisIsUp: false,
+        sendCopyToForeign: false,
+        storeInDocument: false
+      })
+    }
+  );
+  if (!transResp.ok) throw new Error('Translation request failed: ' + transResp.status);
+  const trans = await transResp.json();
+  const translationId = trans.id;
+
+  // 2. Poll until DONE or timeout
+  const deadline = Date.now() + STEP_TIMEOUT_MS;
+  let foreignId = null;
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 1500));
+    const poll = await onshapeFetch(`/translations/${translationId}`);
+    if (poll.requestState === 'DONE') {
+      foreignId = poll.resultExternalDataIds?.[0];
+      break;
+    }
+    if (poll.requestState === 'FAILED') throw new Error('Translation failed');
+  }
+  if (!foreignId) return null; // timed out — caller will warn
+
+  // 3. Download the file bytes
+  const fileResp = await fetch(
+    `https://cad.onshape.com/api/v6/documents/d/${docId}/externaldata/${foreignId}`,
+    { headers: { 'Authorization': 'Basic ' + btoa(CONFIG.osKey + ':' + CONFIG.osSecret) } }
+  );
+  if (!fileResp.ok) throw new Error('File download failed: ' + fileResp.status);
+  const blob = await fileResp.blob();
+  return { blob, filename: `${part.name.replace(/\s+/g,'_')}.step` };
+}
+
+async function uploadStepToSlack(fileData, channelId, partName) {
+  // Step A: get upload URL
+  const urlResp = await fetch('https://slack.com/api/files.getUploadURLExternal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + CONFIG.slackToken },
+    body: JSON.stringify({ filename: fileData.filename, length: fileData.blob.size })
+  });
+  const urlData = await urlResp.json();
+  if (!urlData.ok) throw new Error('Slack upload URL error: ' + urlData.error);
+
+  // Step B: PUT the file bytes
+  await fetch(urlData.upload_url, { method: 'POST', body: fileData.blob });
+
+  // Step C: complete upload and share to channel
+  const completeResp = await fetch('https://slack.com/api/files.completeUploadExternal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + CONFIG.slackToken },
+    body: JSON.stringify({
+      files: [{ id: urlData.file_id, title: `${partName} — STEP File` }],
+      channel_id: channelId
+    })
+  });
+  const completeData = await completeResp.json();
+  if (!completeData.ok) throw new Error('Slack complete upload error: ' + completeData.error);
+}
+
 // ── SUBMIT ──
 function skipPart(){advanceQueue();}
 async function submitPart(){
   const name=v('f-name'),qty=v('f-qty'),project=getPillVal('project'),cadVer=v('f-cad-version');
   if(!name||!qty||!project||!cadVer){showToast('Fill in required fields (*)',true);return;}
   const btn=document.getElementById('modal-next-btn');
-  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Sending...';
+  btn.disabled=true;
+
+  const part = queue[queueIdx];
   const payload={name,cadVersion:cadVer,project,machine:getPillVal('machine'),material:getPillVal('material'),
     thickness:getPillVal('thickness'),partType:getPillVal('partType'),qty,finish:getPillVal('finish'),
     cadLink:v('f-cad-link'),fileName:attachedFile?attachedFile.name:'',student:v('f-student'),
-    notes:v('f-notes'),partId:queue[queueIdx].id};
+    notes:v('f-notes'),partId:part.id};
+
   try{
-    if(CONFIG.demo){await new Promise(r=>setTimeout(r,700));console.log('DEMO:',payload);}
-    else await postToSlack(payload);
+    if(CONFIG.demo){
+      btn.innerHTML='<span class="spinner"></span> Sending...';
+      await new Promise(r=>setTimeout(r,700));
+      console.log('DEMO:',payload);
+    } else {
+      // 1. Post the card first so students aren't waiting
+      btn.innerHTML='<span class="spinner"></span> Posting card...';
+      await postToSlack(payload);
+
+      // 2. Export + upload STEP file
+      btn.innerHTML='<span class="spinner"></span> Exporting STEP...';
+      try {
+        const fileData = await exportStepFile(part);
+        if (fileData) {
+          btn.innerHTML='<span class="spinner"></span> Uploading STEP...';
+          await uploadStepToSlack(fileData, CONFIG.slackChannel, name);
+        } else {
+          showToast(`⚠️ STEP export timed out for "${name}" — card posted without file`, true);
+        }
+      } catch(stepErr) {
+        // Don't block card submission if STEP fails
+        showToast(`⚠️ STEP export failed for "${name}": ${stepErr.message}`, true);
+      }
+    }
+
     addToHistory(payload);
-    showToast(`✓ Card created for "${name}"`);
+    showToast(`✓ Card + STEP created for "${name}"`);
     advanceQueue();
   }catch(err){showToast('Slack error: '+err.message,true);}
   finally{btn.disabled=false;btn.textContent=queueIdx>=queue.length-1?'✓ Submit':'Submit & Next →';}
