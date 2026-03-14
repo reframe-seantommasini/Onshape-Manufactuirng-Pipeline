@@ -145,16 +145,9 @@
       <label>Secret Key</label>
       <input type="text" id="cfg-os-secret" placeholder="Your OnShape secret key"/>
     </div>
-    <h2 style="margin-top:18px">Slack</h2>
-    <div class="cfg-field">
-      <label>Bot Token</label>
-      <input type="text" id="cfg-slack-token" placeholder="xoxb-..."/>
-      <div class="cfg-note">From your Slack app's OAuth page</div>
-    </div>
-    <div class="cfg-field">
-      <label>Channel ID</label>
-      <input type="text" id="cfg-slack-channel" placeholder="C0XXXXXXXXX"/>
-      <div class="cfg-note">Right-click channel → View channel details → Copy ID</div>
+    <div style="margin-top:18px;padding:10px 12px;background:#1a3a1a;border:1px solid #2d6b2d;border-radius:8px;display:flex;align-items:center;gap:8px;">
+      <span style="color:#4ade80;font-size:1rem;">✓</span>
+      <span style="font-family:'Barlow Condensed',sans-serif;font-size:0.8rem;color:#4ade80;letter-spacing:0.06em;text-transform:uppercase;font-weight:700;">Slack pre-configured for FRC 6328</span>
     </div>
     <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="saveConfig()">Connect & Launch</button>
     <button class="btn btn-secondary" style="width:100%;margin-top:8px" onclick="useDemoMode()">Demo Mode (no credentials)</button>
@@ -240,7 +233,11 @@ const OPTIONS = {
   finish:    ['None','Black','Blue','Yellow','Pink','Other'],
 };
 
-let CONFIG={osKey:'',osSecret:'',slackToken:'',slackChannel:'',demo:false};
+// ── HARDCODED SLACK CONFIG — update these two values ──
+const SLACK_TOKEN   = 'xoxb-YOUR-TOKEN-HERE';
+const SLACK_CHANNEL = 'YOUR-CHANNEL-ID-HERE';
+
+let CONFIG={osKey:'',osSecret:'',slackToken:SLACK_TOKEN,slackChannel:SLACK_CHANNEL,demo:false};
 let pillState={}, attachedFile=null, submissionHistory=[];
 let studioSelectedIds=[];
 let docId='', wvmType='w', wvmId='', elementId='';
@@ -255,13 +252,11 @@ function loadSavedConfig(){
     const saved = localStorage.getItem(STORAGE_KEY);
     if(!saved) return;
     const c = JSON.parse(saved);
-    if(c.osKey)        document.getElementById('cfg-os-key').value      = c.osKey;
-    if(c.osSecret)     document.getElementById('cfg-os-secret').value   = c.osSecret;
-    if(c.slackToken)   document.getElementById('cfg-slack-token').value = c.slackToken;
-    if(c.slackChannel) document.getElementById('cfg-slack-channel').value = c.slackChannel;
-    // If all fields saved, auto-launch
-    if(c.osKey && c.osSecret && c.slackToken && c.slackChannel){
-      CONFIG = {...CONFIG, ...c};
+    if(c.osKey)    document.getElementById('cfg-os-key').value    = c.osKey;
+    if(c.osSecret) document.getElementById('cfg-os-secret').value = c.osSecret;
+    // Auto-launch if OnShape keys already saved
+    if(c.osKey && c.osSecret){
+      CONFIG = {...CONFIG, osKey:c.osKey, osSecret:c.osSecret};
       launchApp();
     }
   } catch(e){}
@@ -269,13 +264,13 @@ function loadSavedConfig(){
 
 function saveConfig(){
   CONFIG.osKey=v('cfg-os-key'); CONFIG.osSecret=v('cfg-os-secret');
-  CONFIG.slackToken=v('cfg-slack-token'); CONFIG.slackChannel=v('cfg-slack-channel');
-  if(!CONFIG.osKey||!CONFIG.osSecret||!CONFIG.slackToken||!CONFIG.slackChannel){showToast('Please fill all fields',true);return;}
-  // Persist to localStorage so students don't need to re-enter
+  // Slack is hardcoded — always set from constants
+  CONFIG.slackToken=SLACK_TOKEN; CONFIG.slackChannel=SLACK_CHANNEL;
+  if(!CONFIG.osKey||!CONFIG.osSecret){showToast('Please fill in your OnShape API keys',true);return;}
+  // Only save OnShape keys to localStorage
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      osKey: CONFIG.osKey, osSecret: CONFIG.osSecret,
-      slackToken: CONFIG.slackToken, slackChannel: CONFIG.slackChannel
+      osKey: CONFIG.osKey, osSecret: CONFIG.osSecret
     }));
   } catch(e){}
   launchApp();
@@ -303,17 +298,19 @@ function switchTab(name){
 
 // ── ONSHAPE INIT ──
 function initOnShape(){
+  // Try URL params first (may or may not be present in Right Panel context)
   const p=new URLSearchParams(window.location.search);
   docId=p.get('documentId')||'';
   wvmType=p.get('versionId')?'v':'w';
   wvmId=p.get('workspaceId')||p.get('versionId')||'';
   elementId=p.get('elementId')||'';
-  if(docId){
-    document.getElementById('doc-label').textContent=docId.substring(0,8)+'...';
-    document.getElementById('doc-info').textContent='doc: '+docId.substring(0,12)+'…';
-  }
+
+  // Always listen for messages — OnShape will send documentInfo/applicationElementInfo
   window.addEventListener('message', handleOnShapeMessage);
-  // applicationInit is required — OnShape won't send messages until it receives this
+
+  // Send applicationInit regardless of whether we have URL params
+  // OnShape requires this before it will send any messages to the panel
+  // If we have params, include them; if not, OnShape will reply with the context
   try{
     window.parent.postMessage({
       messageName: 'applicationInit',
@@ -321,8 +318,17 @@ function initOnShape(){
       workspaceId: wvmId,
       elementId:   elementId
     }, '*');
-  }catch(e){}
-  if(docId) loadParts();
+  }catch(e){ console.warn('postMessage failed:', e); }
+
+  // Update UI if we already have doc context from URL params
+  if(docId){
+    document.getElementById('doc-label').textContent=docId.substring(0,8)+'...';
+    document.getElementById('doc-info').textContent='doc: '+docId.substring(0,12)+'…';
+    loadParts();
+  } else {
+    // No URL params — waiting for OnShape to send document context via postMessage
+    document.getElementById('doc-info').textContent='Waiting for document context...';
+  }
 }
 
 // ── ONSHAPE MESSAGE HANDLER ──
@@ -336,8 +342,12 @@ function handleOnShapeMessage(e){
       docId=msg.documentId||docId;
       wvmId=msg.workspaceId||wvmId;
       elementId=msg.elementId||elementId;
-      document.getElementById('doc-label').textContent=docId.substring(0,8)+'...';
-      loadParts();
+      wvmType=msg.versionId?'v':'w';
+      if(docId){
+        document.getElementById('doc-label').textContent=docId.substring(0,8)+'...';
+        document.getElementById('doc-info').textContent='doc: '+docId.substring(0,12)+'…';
+        loadParts();
+      }
       break;
     // OnShape sends uppercase 'SELECTION' for right panel selection events
     case 'SELECTION':
