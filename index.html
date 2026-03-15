@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Pipeline — FRC 6328 v1.25</title>
+<title>Manufacturing Pipeline — FRC 6328 v1.26</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
   :root {
@@ -149,7 +149,7 @@
     <div class="hdr-divider"></div>
     <span class="hdr-title">Mfg Pipeline</span>
     <span class="doc-badge" id="doc-label">No document</span>
-    <span style="font-size:.6rem;color:var(--muted);margin-left:4px;">v1.25</span>
+    <span style="font-size:.6rem;color:var(--muted);margin-left:4px;">v1.26</span>
   </header>
 
   <div id="selection-banner">
@@ -241,7 +241,7 @@ function launchApp(){
   // Retry at 2s and again at 4s if we still don't have a docId.
   function retryInit(label){
     if(docId) return;
-    console.log(`[MFG v1.25] ${label}: no docId yet, re-sending applicationInit`);
+    console.log(`[MFG v1.26] ${label}: no docId yet, re-sending applicationInit`);
     try{
       window.parent.postMessage({
         messageName: 'applicationInit',
@@ -249,7 +249,7 @@ function launchApp(){
         workspaceId: wvmId,
         elementId:   elementId
       }, osServer||'*');
-    }catch(e){ console.warn('[MFG v1.25] postMessage failed:', e); }
+    }catch(e){ console.warn('[MFG v1.26] postMessage failed:', e); }
   }
 
   setTimeout(()=>retryInit('2s retry'), 2000);
@@ -257,9 +257,9 @@ function launchApp(){
 
   setTimeout(()=>{
     if(!docId){
-      console.error('[MFG v1.25] Still no docId after 5s.');
-      console.error('[MFG v1.25] ROOT CAUSE: The OnShape dev portal Action URL is missing {$documentId} params.');
-      console.error('[MFG v1.25] Fix: set Action URL to include {$documentId}&workspaceId={$workspaceId}&elementId={$elementId}&selectedPartIds={$selectedPartIds}&server={$server}');
+      console.error('[MFG v1.26] Still no docId after 5s.');
+      console.error('[MFG v1.26] ROOT CAUSE: The OnShape dev portal Action URL is missing {$documentId} params.');
+      console.error('[MFG v1.26] Fix: set Action URL to include {$documentId}&workspaceId={$workspaceId}&elementId={$elementId}&selectedPartIds={$selectedPartIds}&server={$server}');
       document.getElementById('doc-info').textContent =
         '⚠️ No document context — Action URL is missing {$documentId} params. See browser console for exact fix.';
       document.getElementById('doc-label').textContent = 'Fix needed';
@@ -273,7 +273,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 
   // 1. RAW MESSAGE SPY — logs every postMessage before any filtering.
   window.addEventListener('message', e=>{
-    console.log('[MFG v1.25 RAW]', {
+    console.log('[MFG v1.26 RAW]', {
       origin: e.origin,
       messageName: e.data?.messageName,
       fullData: e.data
@@ -316,7 +316,7 @@ function initOnShape(){
   const selectedParam = p.get('selectedPartIds') || '';
   studioSelectedIds = selectedParam ? selectedParam.split(',').filter(Boolean) : [];
 
-  console.log('[MFG v1.25] initOnShape — URL params:', {docId, wvmType, wvmId, elementId, osServer, selectedCount: studioSelectedIds.length});
+  console.log('[MFG v1.26] initOnShape — URL params:', {docId, wvmType, wvmId, elementId, osServer, selectedCount: studioSelectedIds.length});
 
   if(docId && wvmId && elementId){
     document.getElementById('doc-label').textContent = docId.substring(0,8)+'...';
@@ -332,9 +332,9 @@ function initOnShape(){
       workspaceId:  wvmId,
       elementId:    elementId
     };
-    console.log('[MFG v1.25] Sending applicationInit with real IDs to', osServer);
+    console.log('[MFG v1.26] Sending applicationInit with real IDs to', osServer);
     try{ window.parent.postMessage(initMsg, osServer); }
-    catch(e){ console.warn('[MFG v1.25] applicationInit postMessage failed:', e); }
+    catch(e){ console.warn('[MFG v1.26] applicationInit postMessage failed:', e); }
 
     // ── keepAlive heartbeat ─────────────────────────────────────────────────
     // OnShape requires periodic keepAlive messages to keep the session alive
@@ -360,14 +360,14 @@ function initOnShape(){
 
     loadParts();
   } else {
-    console.warn('[MFG v1.25] No URL params — check Action URL includes {$documentId}, {$workspaceId}, {$elementId}, {$selectedPartIds}, {$server}');
+    console.warn('[MFG v1.26] No URL params — check Action URL includes {$documentId}, {$workspaceId}, {$elementId}, {$selectedPartIds}, {$server}');
     document.getElementById('doc-info').textContent = 'Waiting for document context...';
   }
 }
 
 // ── ONSHAPE MESSAGE HANDLER ──
 function handleOnShapeMessage(e){
-  console.log('[MFG v1.25] postMessage received:', {
+  console.log('[MFG v1.26] postMessage received:', {
     origin: e.origin,
     messageName: e.data?.messageName,
     data: e.data
@@ -377,7 +377,7 @@ function handleOnShapeMessage(e){
   // OnShape to trust our postMessages back. Fall back to cad.onshape.com if not set.
   const expectedOrigin = osServer || 'https://cad.onshape.com';
   if(e.origin !== expectedOrigin){
-    console.warn('[MFG v1.25] Unexpected origin (skipping):', e.origin, '— expected:', expectedOrigin);
+    console.warn('[MFG v1.26] Unexpected origin (skipping):', e.origin, '— expected:', expectedOrigin);
     return;
   }
 
@@ -389,7 +389,7 @@ function handleOnShapeMessage(e){
     case 'documentInfo':
     case 'applicationInfo':
     case 'contextUpdate':
-      console.log('[MFG v1.25] Document context received:', msg);
+      console.log('[MFG v1.26] Document context received:', msg);
       docId      = msg.documentId  || docId;
       wvmId      = msg.workspaceId || msg.wvmId || wvmId;
       elementId  = msg.elementId   || elementId;
@@ -416,44 +416,69 @@ function handleOnShapeMessage(e){
       break;
 
     default:
-      console.log('[MFG v1.25] Unhandled messageName:', msg.messageName, msg);
+      console.log('[MFG v1.26] Unhandled messageName:', msg.messageName, msg);
   }
 }
 
-// When OnShape sends a SELECTION event (face, edge, body — anything),
-// show the banner. The user presses "Use Selection" to apply it.
-// Priority: partId (present on body selections, matches parts API) > nodeId > selectionId.
-// selectionId is entity-level (face/edge) and will NEVER match partId/bodyId from the API.
-function resolveSelectionToParts(selArray){
-  if(selArray.length > 0){
-    // DIAGNOSTIC: log the full shape of every selection entry so we can see exactly
-    // which fields are present and what values they carry.
-    console.log('[MFG v1.25] SELECTION raw entries:', JSON.stringify(selArray.map(s=>({
-      partId:      s.partId,
-      nodeId:      s.nodeId,
-      selectionId: s.selectionId,
-      entityId:    s.entityId,
-      entityType:  s.entityType,
-      occurrenceId:s.occurrenceId,
-    }))));
+// selectionId values from SELECTION events (e.g. "LFiqL") are B-rep entity IDs —
+// they live in a completely different ID space from the partId values ("JFD", "JFH"…)
+// returned by the /parts API. The FeatureScript eval endpoint is the only API that
+// can bridge them: it runs server-side FS and returns the partId for each entity.
+async function resolveSelectionToParts(selArray){
+  if(!selArray.length) return;
 
-    // partId is populated when a solid body is selected (the common case).
-    // nodeId often matches bodyId from the /parts API for body-level entities.
-    // selectionId is last-resort — it's a face/edge entity ID, rarely useful here.
-    const ids = selArray
-      .map(s => s.partId || s.nodeId || s.selectionId || s.entityId)
-      .filter(Boolean);
-    console.log('[MFG v1.25] resolveSelectionToParts — resolved IDs:', JSON.stringify(ids));
-    studioSelectedIds = ids;
-    const n = ids.length;
-    document.getElementById('sel-banner-text').textContent =
-      `${n} part${n!==1?'s':''} selected — tap Use Selection`;
-    document.getElementById('selection-banner').classList.add('visible');
+  // Show feedback immediately while we resolve
+  document.getElementById('sel-banner-text').textContent = 'Resolving selection…';
+  document.getElementById('selection-banner').classList.add('visible');
+
+  // Fast path: if OnShape already provided partId directly on the event object, use it
+  const directPartIds = selArray.map(s => s.partId).filter(Boolean);
+  if(directPartIds.length === selArray.length){
+    console.log('[MFG v1.26] Direct partIds on event — skipping FS eval:', directPartIds);
+    _applyResolvedIds(directPartIds);
+    return;
   }
+
+  const entityIds = selArray.map(s => s.selectionId || s.entityId).filter(Boolean);
+  console.log('[MFG v1.26] Resolving entity IDs via FeatureScript:', JSON.stringify(entityIds));
+
+  if(!docId || !wvmId || !elementId){
+    console.warn('[MFG v1.26] No doc context — cannot run FS eval');
+    _applyResolvedIds(entityIds); // fallback: store raw IDs
+    return;
+  }
+
+  try {
+    const resp = await fetch('/api/onshape', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'evalFeatureScript', docId, wvmType, wvmId, elementId, entityIds })
+    });
+    const data = await resp.json();
+    if(data.partIds && data.partIds.length){
+      console.log('[MFG v1.26] FS eval -> partIds:', data.partIds);
+      _applyResolvedIds(data.partIds);
+    } else {
+      console.warn('[MFG v1.26] FS eval returned no partIds:', data);
+      _applyResolvedIds(entityIds);
+    }
+  } catch(err){
+    console.warn('[MFG v1.26] FS eval failed, using raw IDs:', err.message);
+    _applyResolvedIds(entityIds);
+  }
+}
+
+function _applyResolvedIds(ids){
+  studioSelectedIds = [...new Set(ids)];
+  const n = studioSelectedIds.length;
+  document.getElementById('sel-banner-text').textContent =
+    `${n} part${n!==1?'s':''} selected — tap Use Selection`;
+  document.getElementById('selection-banner').classList.add('visible');
+  console.log('[MFG v1.26] studioSelectedIds:', JSON.stringify(studioSelectedIds));
+}
   // Intentionally do NOT clear studioSelectedIds or hide banner on empty selection —
   // OnShape fires Array(0) events on mouse-move which would wipe the selection
   // before the user gets a chance to press "Use Selection".
-}
 
 function handleStudioSelectionChange(ids){
   studioSelectedIds = ids;
@@ -480,10 +505,10 @@ function useStudioSelection(){
 }
 function autoSelectFromStudio(){
   clearSelection();
-  console.log('[MFG v1.25] Matching studioSelectedIds:', JSON.stringify(studioSelectedIds));
-  console.log('[MFG v1.25] Available part IDs:', JSON.stringify(parts.map(p=>p.id).slice(0,5)));
-  console.log('[MFG v1.25] Available body IDs:', JSON.stringify(parts.map(p=>p.bodyId).slice(0,5)));
-  console.log('[MFG v1.25] Available node IDs:', JSON.stringify(parts.map(p=>p.nodeId).filter(Boolean).slice(0,5)));
+  console.log('[MFG v1.26] Matching studioSelectedIds:', JSON.stringify(studioSelectedIds));
+  console.log('[MFG v1.26] Available part IDs:', JSON.stringify(parts.map(p=>p.id).slice(0,5)));
+  console.log('[MFG v1.26] Available body IDs:', JSON.stringify(parts.map(p=>p.bodyId).slice(0,5)));
+  console.log('[MFG v1.26] Available node IDs:', JSON.stringify(parts.map(p=>p.nodeId).filter(Boolean).slice(0,5)));
   parts.forEach(p=>{
     if(studioSelectedIds.includes(p.id)
     || (p.bodyId && studioSelectedIds.includes(p.bodyId))
