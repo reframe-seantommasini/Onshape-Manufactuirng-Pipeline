@@ -22,6 +22,7 @@ export default async function handler(req, res) {
       const p = payload;
       const fields = [
         ['Project', p.project],
+        ['Status', p.status||'Not set'],
         ['Machine', p.machine||'TBD'], ['Material', p.material||'TBD'],
         ['Thickness', p.thickness||'TBD'], ['Type of Part', p.partType||'TBD'],
         ['Quantity', p.qty], ['Finish', p.finish||'None'],
