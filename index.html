@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Pipeline — FRC 6328 v1.14</title>
+<title>Manufacturing Pipeline — FRC 6328 v1.15</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
   :root {
@@ -149,7 +149,7 @@
     <div class="hdr-divider"></div>
     <span class="hdr-title">Mfg Pipeline</span>
     <span class="doc-badge" id="doc-label">No document</span>
-    <span style="font-size:.6rem;color:var(--muted);margin-left:4px;">v1.14</span>
+    <span style="font-size:.6rem;color:var(--muted);margin-left:4px;">v1.15</span>
   </header>
 
   <div id="selection-banner">
@@ -240,7 +240,7 @@ function launchApp(){
   // Retry at 2s and again at 4s if we still don't have a docId.
   function retryInit(label){
     if(docId) return;
-    console.log(`[MFG v1.14] ${label}: no docId yet, re-sending applicationInit`);
+    console.log(`[MFG v1.15] ${label}: no docId yet, re-sending applicationInit`);
     try{
       window.parent.postMessage({
         messageName: 'applicationInit',
@@ -248,7 +248,7 @@ function launchApp(){
         workspaceId: wvmId,
         elementId:   elementId
       }, osServer||'*');
-    }catch(e){ console.warn('[MFG v1.14] postMessage failed:', e); }
+    }catch(e){ console.warn('[MFG v1.15] postMessage failed:', e); }
   }
 
   setTimeout(()=>retryInit('2s retry'), 2000);
@@ -256,9 +256,9 @@ function launchApp(){
 
   setTimeout(()=>{
     if(!docId){
-      console.error('[MFG v1.14] Still no docId after 5s.');
-      console.error('[MFG v1.14] ROOT CAUSE: The OnShape dev portal Action URL is missing {$documentId} params.');
-      console.error('[MFG v1.14] Fix: set Action URL to include {$documentId}&workspaceId={$workspaceId}&elementId={$elementId}&selectedPartIds={$selectedPartIds}&server={$server}');
+      console.error('[MFG v1.15] Still no docId after 5s.');
+      console.error('[MFG v1.15] ROOT CAUSE: The OnShape dev portal Action URL is missing {$documentId} params.');
+      console.error('[MFG v1.15] Fix: set Action URL to include {$documentId}&workspaceId={$workspaceId}&elementId={$elementId}&selectedPartIds={$selectedPartIds}&server={$server}');
       document.getElementById('doc-info').textContent =
         '⚠️ No document context — Action URL is missing {$documentId} params. See browser console for exact fix.';
       document.getElementById('doc-label').textContent = 'Fix needed';
@@ -272,7 +272,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 
   // 1. RAW MESSAGE SPY — logs every postMessage before any filtering.
   window.addEventListener('message', e=>{
-    console.log('[MFG v1.14 RAW]', {
+    console.log('[MFG v1.15 RAW]', {
       origin: e.origin,
       messageName: e.data?.messageName,
       fullData: e.data
@@ -307,14 +307,15 @@ function initOnShape(){
   wvmId     = p.get('workspaceId') || p.get('versionId') || '';
   wvmType   = p.get('versionId') ? 'v' : 'w';
   elementId = p.get('elementId') || '';
-  // {$server} gives us the exact origin to target and validate — required for SELECTION to work
-  osServer  = p.get('server') || 'https://cad.onshape.com';
+  // Target origin for postMessage — hardcoded to cad.onshape.com.
+  // {$server} is NOT a valid OnShape Action URL token and will not be substituted.
+  osServer = 'https://cad.onshape.com';
 
   // {$selectedPartIds} is a snapshot of what was selected when the panel icon was clicked
   const selectedParam = p.get('selectedPartIds') || '';
   studioSelectedIds = selectedParam ? selectedParam.split(',').filter(Boolean) : [];
 
-  console.log('[MFG v1.14] initOnShape — URL params:', {docId, wvmType, wvmId, elementId, osServer, selectedCount: studioSelectedIds.length});
+  console.log('[MFG v1.15] initOnShape — URL params:', {docId, wvmType, wvmId, elementId, osServer, selectedCount: studioSelectedIds.length});
 
   if(docId && wvmId && elementId){
     document.getElementById('doc-label').textContent = docId.substring(0,8)+'...';
@@ -330,9 +331,9 @@ function initOnShape(){
       workspaceId:  wvmId,
       elementId:    elementId
     };
-    console.log('[MFG v1.14] Sending applicationInit with real IDs to', osServer);
+    console.log('[MFG v1.15] Sending applicationInit with real IDs to', osServer);
     try{ window.parent.postMessage(initMsg, osServer); }
-    catch(e){ console.warn('[MFG v1.14] applicationInit postMessage failed:', e); }
+    catch(e){ console.warn('[MFG v1.15] applicationInit postMessage failed:', e); }
 
     // ── keepAlive heartbeat ─────────────────────────────────────────────────
     // OnShape requires periodic keepAlive messages to keep the session alive
@@ -358,14 +359,14 @@ function initOnShape(){
 
     loadParts();
   } else {
-    console.warn('[MFG v1.14] No URL params — check Action URL includes {$documentId}, {$workspaceId}, {$elementId}, {$selectedPartIds}, {$server}');
+    console.warn('[MFG v1.15] No URL params — check Action URL includes {$documentId}, {$workspaceId}, {$elementId}, {$selectedPartIds}, {$server}');
     document.getElementById('doc-info').textContent = 'Waiting for document context...';
   }
 }
 
 // ── ONSHAPE MESSAGE HANDLER ──
 function handleOnShapeMessage(e){
-  console.log('[MFG v1.14] postMessage received:', {
+  console.log('[MFG v1.15] postMessage received:', {
     origin: e.origin,
     messageName: e.data?.messageName,
     data: e.data
@@ -375,7 +376,7 @@ function handleOnShapeMessage(e){
   // OnShape to trust our postMessages back. Fall back to cad.onshape.com if not set.
   const expectedOrigin = osServer || 'https://cad.onshape.com';
   if(e.origin !== expectedOrigin){
-    console.warn('[MFG v1.14] Unexpected origin (skipping):', e.origin, '— expected:', expectedOrigin);
+    console.warn('[MFG v1.15] Unexpected origin (skipping):', e.origin, '— expected:', expectedOrigin);
     return;
   }
 
@@ -387,7 +388,7 @@ function handleOnShapeMessage(e){
     case 'documentInfo':
     case 'applicationInfo':
     case 'contextUpdate':
-      console.log('[MFG v1.14] Document context received:', msg);
+      console.log('[MFG v1.15] Document context received:', msg);
       docId      = msg.documentId  || docId;
       wvmId      = msg.workspaceId || msg.wvmId || wvmId;
       elementId  = msg.elementId   || elementId;
@@ -401,7 +402,7 @@ function handleOnShapeMessage(e){
 
     // OnShape sends 'SELECTION' events once applicationInit with valid IDs has been accepted
     case 'SELECTION':
-      console.log('[MFG v1.14] Selection event:', msg.selection);
+      console.log('[MFG v1.15] Selection event:', msg.selection);
       if(msg.selection && Array.isArray(msg.selection)){
         const ids = msg.selection
           .filter(s => s.entityType==='PART' || s.objectType==='PART')
@@ -412,7 +413,7 @@ function handleOnShapeMessage(e){
       break;
 
     default:
-      console.log('[MFG v1.14] Unhandled messageName:', msg.messageName, msg);
+      console.log('[MFG v1.15] Unhandled messageName:', msg.messageName, msg);
   }
 }
 
