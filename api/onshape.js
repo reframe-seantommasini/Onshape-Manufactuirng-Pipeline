@@ -39,33 +39,30 @@ export default async function handler(req, res) {
       const wvm = wvmType === 'v' ? 'v' : 'w';
       const fsUrl = `https://cad.onshape.com/api/v6/partstudios/d/${docId}/${wvm}/${wvmId}/e/${elementId}/featurescript`;
 
-      // FeatureScript: for each transient entity ID from the SELECTION event,
-      // find the owning part body and return its partId string.
-      // qTransient() accepts the selectionId string directly.
-      // Note: the script must be a valid FS function expression — no semicolons after
-      // the closing brace, no top-level statements.
-      const fsScript = [
-        'function(context is Context, queries) {',
-        '  var result = [];',
-        '  for (var eid in queries["ids"]) {',
-        '    try {',
-        '      var owner = qOwnerPart(qTransient(eid));',
-        '      for (var part in evaluateQuery(context, owner)) {',
-        '        var pid = getProperty(context, {',
-        '          "entity" : part,',
-        '          "propertyType" : PropertyType.PART_NUMBER',
-        '        });',
-        '        result = append(result, pid == undefined ? "" : pid);',
-        '      }',
-        '    } catch {',
-        '      result = append(result, "err:" ~ eid);',
-        '    }',
-        '  }',
-        '  return result;',
-        '}'
-      ].join('\n');
+      // FeatureScript: use qOwnerPart + qTransient to resolve face/edge entity IDs
+      // to the part that owns them. partId(context, entity) returns the string ID
+      // that matches the partId field in the /parts REST API response (e.g. "JFD").
+      //
+      // The queries param arrives as a map — queries["ids"] is our array of selectionId strings.
+      // We iterate, resolve each to its owner part, and collect unique partIds.
+      const fsScript = `function(context is Context, queries) {
+  var result = [];
+  var seen = {};
+  for (var eid in queries["ids"]) {
+    try {
+      var ownerQuery = qOwnerPart(qTransient(eid));
+      for (var part in evaluateQuery(context, ownerQuery)) {
+        var pid = partId(context, part);
+        if (seen[pid] != true) {
+          seen[pid] = true;
+          result = append(result, pid);
+        }
+      }
+    } catch {}
+  }
+  return result;
+}`;
 
-      // queries payload: keys become the map keys inside the FS function
       const fsPayload = {
         script: fsScript,
         queries: [{ key: 'ids', value: entityIds }]
@@ -79,50 +76,41 @@ export default async function handler(req, res) {
           body: JSON.stringify(fsPayload)
         });
 
-        rawText = await fsResp.text(); // always read as text first — avoids JSON parse crash
-        console.log('[onshape proxy] FS status:', fsResp.status, 'body:', rawText.substring(0, 800));
+        rawText = await fsResp.text();
+        console.log('[onshape proxy] FS status:', fsResp.status, '| body:', rawText.substring(0, 600));
 
         if (!fsResp.ok) {
           return res.status(500).json({
-            error: `FS endpoint returned ${fsResp.status}`,
-            detail: rawText.substring(0, 400)
+            error: `FS endpoint returned HTTP ${fsResp.status}`,
+            detail: rawText.substring(0, 600)
           });
         }
 
         let fsData;
-        try {
-          fsData = JSON.parse(rawText);
-        } catch(e) {
-          return res.status(500).json({ error: 'FS response is not JSON', detail: rawText.substring(0, 400) });
-        }
+        try { fsData = JSON.parse(rawText); }
+        catch(e) { return res.status(500).json({ error: 'FS response not JSON', detail: rawText.substring(0, 400) }); }
 
-        console.log('[onshape proxy] FS parsed:', JSON.stringify(fsData).substring(0, 600));
+        console.log('[onshape proxy] FS parsed result:', JSON.stringify(fsData?.result).substring(0, 400));
 
-        // The FS result comes back as { result: { type: 'array', value: [ {type:'string', value:'...'}, ... ] } }
-        // or sometimes { result: { BSType: 'BTFSValueArray', ...items } }
+        // Response shape: { result: { type: "array", value: [ {type:"string", value:"JFD"}, ... ] } }
         let partIds = [];
-
-        const result = fsData.result;
-        if (result) {
-          const items = result.value ?? result.items ?? [];
-          partIds = items
-            .map(v => (typeof v === 'string' ? v : (v.value ?? v.message ?? '')))
-            .filter(s => s && !s.startsWith('err:') && s.length > 0);
-        }
-
-        // Deduplicate
+        const resultVal = fsData?.result?.value ?? fsData?.result?.items ?? [];
+        partIds = resultVal
+          .map(v => typeof v === 'string' ? v : (v?.value ?? ''))
+          .filter(s => s && s.length > 0);
         partIds = [...new Set(partIds)];
+
         return res.json({ ok: true, partIds, raw: fsData });
 
       } catch (err) {
         return res.status(500).json({
-          error: 'FeatureScript eval failed: ' + err.message,
+          error: 'FeatureScript eval threw: ' + err.message,
           detail: rawText.substring(0, 400)
         });
       }
     }
 
-    // Other POST actions — transparent proxy
+    // Other POST actions — transparent proxy (e.g. translation requests)
     const { path } = req.query;
     if (!path) return res.status(400).json({ error: 'Missing path param for POST proxy' });
     const upstreamUrl = `https://cad.onshape.com/api/v6${path}`;
@@ -149,7 +137,6 @@ export default async function handler(req, res) {
     if (contentType.includes('application/json')) {
       return res.json(await upstream.json());
     } else {
-      // Binary passthrough (STEP file downloads)
       return res.send(Buffer.from(await upstream.arrayBuffer()));
     }
   } catch (err) {
