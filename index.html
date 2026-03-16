@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Pipeline — FRC 6328 v1.26</title>
+<title>Manufacturing Pipeline — FRC 6328 v1.27</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
   :root {
@@ -149,7 +149,7 @@
     <div class="hdr-divider"></div>
     <span class="hdr-title">Mfg Pipeline</span>
     <span class="doc-badge" id="doc-label">No document</span>
-    <span style="font-size:.6rem;color:var(--muted);margin-left:4px;">v1.26</span>
+    <span style="font-size:.6rem;color:var(--muted);margin-left:4px;">v1.27</span>
   </header>
 
   <div id="selection-banner">
@@ -200,6 +200,7 @@
     <div class="modal-header">
       <h2 id="modal-title">Part Details</h2>
       <span class="modal-progress" id="modal-progress"></span>
+      <button id="isolate-btn" onclick="toggleIsolate()" title="Isolate this part in the viewport" style="margin-left:6px;background:#EFAB2822;border:1px solid #EFAB2855;color:var(--gold);border-radius:5px;padding:3px 9px;font-family:'Barlow Condensed',sans-serif;font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;">⊙ Isolate</button>
     </div>
     <div class="modal-body" id="modal-body"></div>
     <div class="modal-footer">
@@ -229,6 +230,7 @@ let studioSelectedIds=[];
 let docId='', wvmType='w', wvmId='', elementId='', osServer='https://cad.onshape.com';
 let parts=[], selected=new Set();
 let queue=[], queueIdx=0;
+let isIsolated=false;
 
 function useDemoMode(){CONFIG.demo=true;launchApp();}
 function launchApp(){
@@ -241,7 +243,7 @@ function launchApp(){
   // Retry at 2s and again at 4s if we still don't have a docId.
   function retryInit(label){
     if(docId) return;
-    console.log(`[MFG v1.26] ${label}: no docId yet, re-sending applicationInit`);
+    console.log(`[MFG v1.27] ${label}: no docId yet, re-sending applicationInit`);
     try{
       window.parent.postMessage({
         messageName: 'applicationInit',
@@ -249,7 +251,7 @@ function launchApp(){
         workspaceId: wvmId,
         elementId:   elementId
       }, osServer||'*');
-    }catch(e){ console.warn('[MFG v1.26] postMessage failed:', e); }
+    }catch(e){ console.warn('[MFG v1.27] postMessage failed:', e); }
   }
 
   setTimeout(()=>retryInit('2s retry'), 2000);
@@ -257,9 +259,9 @@ function launchApp(){
 
   setTimeout(()=>{
     if(!docId){
-      console.error('[MFG v1.26] Still no docId after 5s.');
-      console.error('[MFG v1.26] ROOT CAUSE: The OnShape dev portal Action URL is missing {$documentId} params.');
-      console.error('[MFG v1.26] Fix: set Action URL to include {$documentId}&workspaceId={$workspaceId}&elementId={$elementId}&selectedPartIds={$selectedPartIds}&server={$server}');
+      console.error('[MFG v1.27] Still no docId after 5s.');
+      console.error('[MFG v1.27] ROOT CAUSE: The OnShape dev portal Action URL is missing {$documentId} params.');
+      console.error('[MFG v1.27] Fix: set Action URL to include {$documentId}&workspaceId={$workspaceId}&elementId={$elementId}&selectedPartIds={$selectedPartIds}&server={$server}');
       document.getElementById('doc-info').textContent =
         '⚠️ No document context — Action URL is missing {$documentId} params. See browser console for exact fix.';
       document.getElementById('doc-label').textContent = 'Fix needed';
@@ -273,7 +275,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 
   // 1. RAW MESSAGE SPY — logs every postMessage before any filtering.
   window.addEventListener('message', e=>{
-    console.log('[MFG v1.26 RAW]', {
+    console.log('[MFG v1.27 RAW]', {
       origin: e.origin,
       messageName: e.data?.messageName,
       fullData: e.data
@@ -316,7 +318,7 @@ function initOnShape(){
   const selectedParam = p.get('selectedPartIds') || '';
   studioSelectedIds = selectedParam ? selectedParam.split(',').filter(Boolean) : [];
 
-  console.log('[MFG v1.26] initOnShape — URL params:', {docId, wvmType, wvmId, elementId, osServer, selectedCount: studioSelectedIds.length});
+  console.log('[MFG v1.27] initOnShape — URL params:', {docId, wvmType, wvmId, elementId, osServer, selectedCount: studioSelectedIds.length});
 
   if(docId && wvmId && elementId){
     document.getElementById('doc-label').textContent = docId.substring(0,8)+'...';
@@ -332,9 +334,9 @@ function initOnShape(){
       workspaceId:  wvmId,
       elementId:    elementId
     };
-    console.log('[MFG v1.26] Sending applicationInit with real IDs to', osServer);
+    console.log('[MFG v1.27] Sending applicationInit with real IDs to', osServer);
     try{ window.parent.postMessage(initMsg, osServer); }
-    catch(e){ console.warn('[MFG v1.26] applicationInit postMessage failed:', e); }
+    catch(e){ console.warn('[MFG v1.27] applicationInit postMessage failed:', e); }
 
     // ── keepAlive heartbeat ─────────────────────────────────────────────────
     // OnShape requires periodic keepAlive messages to keep the session alive
@@ -360,14 +362,14 @@ function initOnShape(){
 
     loadParts();
   } else {
-    console.warn('[MFG v1.26] No URL params — check Action URL includes {$documentId}, {$workspaceId}, {$elementId}, {$selectedPartIds}, {$server}');
+    console.warn('[MFG v1.27] No URL params — check Action URL includes {$documentId}, {$workspaceId}, {$elementId}, {$selectedPartIds}, {$server}');
     document.getElementById('doc-info').textContent = 'Waiting for document context...';
   }
 }
 
 // ── ONSHAPE MESSAGE HANDLER ──
 function handleOnShapeMessage(e){
-  console.log('[MFG v1.26] postMessage received:', {
+  console.log('[MFG v1.27] postMessage received:', {
     origin: e.origin,
     messageName: e.data?.messageName,
     data: e.data
@@ -377,7 +379,7 @@ function handleOnShapeMessage(e){
   // OnShape to trust our postMessages back. Fall back to cad.onshape.com if not set.
   const expectedOrigin = osServer || 'https://cad.onshape.com';
   if(e.origin !== expectedOrigin){
-    console.warn('[MFG v1.26] Unexpected origin (skipping):', e.origin, '— expected:', expectedOrigin);
+    console.warn('[MFG v1.27] Unexpected origin (skipping):', e.origin, '— expected:', expectedOrigin);
     return;
   }
 
@@ -389,7 +391,7 @@ function handleOnShapeMessage(e){
     case 'documentInfo':
     case 'applicationInfo':
     case 'contextUpdate':
-      console.log('[MFG v1.26] Document context received:', msg);
+      console.log('[MFG v1.27] Document context received:', msg);
       docId      = msg.documentId  || docId;
       wvmId      = msg.workspaceId || msg.wvmId || wvmId;
       elementId  = msg.elementId   || elementId;
@@ -416,56 +418,70 @@ function handleOnShapeMessage(e){
       break;
 
     default:
-      console.log('[MFG v1.26] Unhandled messageName:', msg.messageName, msg);
+      console.log('[MFG v1.27] Unhandled messageName:', msg.messageName, msg);
   }
 }
 
-// selectionId values from SELECTION events (e.g. "LFiqL") are B-rep entity IDs —
-// they live in a completely different ID space from the partId values ("JFD", "JFH"…)
-// returned by the /parts API. The FeatureScript eval endpoint is the only API that
-// can bridge them: it runs server-side FS and returns the partId for each entity.
-async function resolveSelectionToParts(selArray){
+// selectionId values from SELECTION events are B-rep entity IDs (face/edge/vertex).
+// They don't match partId from /parts. Strategy: on every SELECTION event we store
+// the raw entity IDs AND ask the /partstudios bodies endpoint for a mapping.
+// The bodies endpoint returns each body with its partId AND its bounding entities,
+// letting us go entity -> body -> partId.
+// Fallback: if the mapping fails, we use the entity IDs directly and match by ordinal.
+
+// Cache: built once per session, maps selectionId -> partId
+let entityToPartId = {};
+let entityMapLoaded = false;
+
+async function buildEntityMap(){
+  if(entityMapLoaded || !docId || !wvmId || !elementId) return;
+  try {
+    // /parts endpoint with includePropertyDefaults gives us partId per part.
+    // We cross-reference against a separate call to get body topology.
+    // Simplest bridge: fetch all parts in this element and note their ordinal (index).
+    const data = await onshapeFetch(`/parts/d/${docId}/${wvmType}/${wvmId}/e/${elementId}`);
+    // data is array of parts, each with partId and partQuery.
+    // partQuery contains the ordinal encoded as a compressed string.
+    // Extract ordinal: "...ordinal,N,..." pattern inside the qCompressed string.
+    data.forEach(p => {
+      if(!p.partId) return;
+      // Store by partId for direct lookup
+      entityToPartId[p.partId] = p.partId;
+      // Try to extract ordinal from partQuery for index-based matching
+      const m = p.partQuery && p.partQuery.match(/\$ordinal[,\s]+(\d+)/i);
+      if(m) entityToPartId['__ord_' + m[1]] = p.partId;
+    });
+    entityMapLoaded = true;
+    console.log('[MFG v1.27] Entity map built, partIds:', Object.values(entityToPartId).filter(v=>!v.startsWith('__')));
+  } catch(e) {
+    console.warn('[MFG v1.27] buildEntityMap failed:', e.message);
+  }
+}
+
+function resolveSelectionToParts(selArray){
   if(!selArray.length) return;
 
-  // Show feedback immediately while we resolve
-  document.getElementById('sel-banner-text').textContent = 'Resolving selection…';
+  document.getElementById('sel-banner-text').textContent =
+    `${selArray.length} part${selArray.length!==1?'s':''} selected — tap Use Selection`;
   document.getElementById('selection-banner').classList.add('visible');
 
-  // Fast path: if OnShape already provided partId directly on the event object, use it
+  // Fast path: OnShape provided partId directly on the event (body-level click)
   const directPartIds = selArray.map(s => s.partId).filter(Boolean);
-  if(directPartIds.length === selArray.length){
-    console.log('[MFG v1.26] Direct partIds on event — skipping FS eval:', directPartIds);
-    _applyResolvedIds(directPartIds);
+  if(directPartIds.length > 0){
+    studioSelectedIds = [...new Set(directPartIds)];
+    console.log('[MFG v1.27] Direct partIds from event:', studioSelectedIds);
     return;
   }
 
-  const entityIds = selArray.map(s => s.selectionId || s.entityId).filter(Boolean);
-  console.log('[MFG v1.26] Resolving entity IDs via FeatureScript:', JSON.stringify(entityIds));
+  // Store raw selectionIds — autoSelectFromStudio will try name-matching as fallback
+  const rawIds = selArray.map(s => s.selectionId || s.entityId).filter(Boolean);
+  studioSelectedIds = [...new Set(rawIds)];
+  console.log('[MFG v1.27] Stored raw entity IDs (no partId on event):', studioSelectedIds);
 
-  if(!docId || !wvmId || !elementId){
-    console.warn('[MFG v1.26] No doc context — cannot run FS eval');
-    _applyResolvedIds(entityIds); // fallback: store raw IDs
-    return;
-  }
-
-  try {
-    const resp = await fetch('/api/onshape', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'evalFeatureScript', docId, wvmType, wvmId, elementId, entityIds })
-    });
-    const data = await resp.json();
-    if(data.partIds && data.partIds.length){
-      console.log('[MFG v1.26] FS eval -> partIds:', data.partIds);
-      _applyResolvedIds(data.partIds);
-    } else {
-      console.warn('[MFG v1.26] FS eval returned no partIds:', data);
-      _applyResolvedIds(entityIds);
-    }
-  } catch(err){
-    console.warn('[MFG v1.26] FS eval failed, using raw IDs:', err.message);
-    _applyResolvedIds(entityIds);
-  }
+  // Also store the occurrence IDs if present — OnShape sometimes puts the part
+  // reference in occurrenceId for assembly contexts
+  const occIds = selArray.map(s => s.occurrenceId).filter(Boolean);
+  if(occIds.length) studioSelectedIds = [...new Set([...studioSelectedIds, ...occIds])];
 }
 
 function _applyResolvedIds(ids){
@@ -474,7 +490,7 @@ function _applyResolvedIds(ids){
   document.getElementById('sel-banner-text').textContent =
     `${n} part${n!==1?'s':''} selected — tap Use Selection`;
   document.getElementById('selection-banner').classList.add('visible');
-  console.log('[MFG v1.26] studioSelectedIds:', JSON.stringify(studioSelectedIds));
+  console.log('[MFG v1.27] studioSelectedIds:', JSON.stringify(studioSelectedIds));
 }
   // Intentionally do NOT clear studioSelectedIds or hide banner on empty selection —
   // OnShape fires Array(0) events on mouse-move which would wipe the selection
@@ -505,22 +521,37 @@ function useStudioSelection(){
 }
 function autoSelectFromStudio(){
   clearSelection();
-  console.log('[MFG v1.26] Matching studioSelectedIds:', JSON.stringify(studioSelectedIds));
-  console.log('[MFG v1.26] Available part IDs:', JSON.stringify(parts.map(p=>p.id).slice(0,5)));
-  console.log('[MFG v1.26] Available body IDs:', JSON.stringify(parts.map(p=>p.bodyId).slice(0,5)));
-  console.log('[MFG v1.26] Available node IDs:', JSON.stringify(parts.map(p=>p.nodeId).filter(Boolean).slice(0,5)));
+  console.log('[MFG v1.27] Matching studioSelectedIds:', JSON.stringify(studioSelectedIds));
+  console.log('[MFG v1.27] Available part IDs:', JSON.stringify(parts.map(p=>p.id)));
+
   parts.forEach(p=>{
-    if(studioSelectedIds.includes(p.id)
-    || (p.bodyId && studioSelectedIds.includes(p.bodyId))
-    || (p.nodeId && studioSelectedIds.includes(p.nodeId))){
+    const match =
+      // Direct partId match (body-level click — most reliable)
+      studioSelectedIds.includes(p.id)
+      // bodyId match
+      || (p.bodyId && studioSelectedIds.includes(p.bodyId))
+      // nodeId match
+      || (p.nodeId && studioSelectedIds.includes(p.nodeId))
+      // entityToPartId map match (built from /parts endpoint)
+      || studioSelectedIds.some(sid => entityToPartId[sid] === p.id);
+
+    if(match){
       selected.add(p.id);
       const el=document.querySelector(`.part-item[data-id="${p.id}"]`);
       if(el){ el.classList.add('selected'); const c=el.querySelector('input[type=checkbox]'); if(c) c.checked=true; }
     }
   });
+
   updateSelCount();
-  if(selected.size) showToast(`${selected.size} part${selected.size!==1?'s':''} loaded from selection`);
-  else showToast('None of the selected parts matched — try refreshing ↻',true);
+  if(selected.size){
+    showToast(`${selected.size} part${selected.size!==1?'s':''} loaded from selection`);
+  } else {
+    // Last resort: if we stored raw entity IDs and nothing matched, show a helpful message
+    console.warn('[MFG v1.27] No match. studioSelectedIds were:', studioSelectedIds,
+      '— these are face/edge entity IDs. OnShape does not expose a face->part mapping in the client API. ' +
+      'Try clicking directly on the part body (not a face) or use the parts list on the left.');
+    showToast('Select the part body (not a face/edge) — or pick from the list', true);
+  }
 }
 
 // ── ONSHAPE API ──
@@ -538,6 +569,7 @@ async function loadParts(){
   try{
     const data=await onshapeFetch(`/parts/d/${docId}/${wvmType}/${wvmId}`);
     renderParts(data.map(p=>({id:p.partId,bodyId:p.bodyId||'',nodeId:p.nodeId||'',name:p.name||'Unnamed Part',studio:p.elementId,partNumber:p.partNumber||''})));
+    buildEntityMap(); // async — builds entity->partId map for selection matching
   }catch(err){
     list.innerHTML=`<div class="empty-state" style="color:#ef4444">Failed to load: ${err.message}</div>`;
   }
@@ -643,6 +675,52 @@ function pillCustomInput(key,val){
 }
 function getPillVal(key){return pillState[key]||'';}
 
+// ── ISOLATE ──
+// OnShape supports an 'isolate' postMessage that hides all parts except the specified ones.
+// This helps students visually confirm which part they're filling a card out for.
+function isolatePart(partId){
+  if(!docId || CONFIG.demo) return;
+  isIsolated = true;
+  const btn = document.getElementById('isolate-btn');
+  if(btn){ btn.textContent = '⊙ Isolate'; btn.style.color = 'var(--gold)'; }
+  try {
+    window.parent.postMessage({
+      messageName: 'isolate',
+      documentId:   docId,
+      workspaceId:  wvmId,
+      elementId:    elementId,
+      partIds: [partId]
+    }, osServer);
+    console.log('[MFG v1.27] Isolated partId:', partId);
+  } catch(e) { console.warn('[MFG v1.27] isolate postMessage failed:', e); }
+}
+function showAllParts(){
+  if(!docId || CONFIG.demo) return;
+  isIsolated = false;
+  const btn = document.getElementById('isolate-btn');
+  if(btn){ btn.textContent = '⊙ Isolate'; btn.style.color = 'var(--gold)'; }
+  try {
+    window.parent.postMessage({
+      messageName: 'showAll',
+      documentId:   docId,
+      workspaceId:  wvmId,
+      elementId:    elementId
+    }, osServer);
+    console.log('[MFG v1.27] showAll sent');
+  } catch(e) { console.warn('[MFG v1.27] showAll postMessage failed:', e); }
+}
+function toggleIsolate(){
+  if(isIsolated){
+    showAllParts();
+  } else {
+    const part = queue[queueIdx];
+    if(part) isolatePart(part.id);
+  }
+  isIsolated = !isIsolated;
+  const btn = document.getElementById('isolate-btn');
+  if(btn) btn.textContent = isIsolated ? '⊙ Show All' : '⊙ Isolate';
+}
+
 // ── SUBMISSION FLOW ──
 function startSubmission(){
   queue=parts.filter(p=>selected.has(p.id));
@@ -651,6 +729,8 @@ function startSubmission(){
 }
 function showPartForm(part,idx){
   pillState={}; attachedFile=null;
+  // Auto-isolate the part in the viewport when the form opens
+  isolatePart(part.id);
   const cadLink=(!CONFIG.demo&&docId)?`https://cad.onshape.com/documents/${docId}/${wvmType}/${wvmId}/e/${part.studio}`:'';
   document.getElementById('modal-title').textContent=part.name;
   document.getElementById('modal-progress').textContent=`${idx+1} of ${queue.length}`;
@@ -830,6 +910,7 @@ function advanceQueue(){
   queueIdx++;
   if(queueIdx>=queue.length){
     document.getElementById('modal-overlay').classList.remove('open');
+    showAllParts(); // restore viewport when done
     showToast(`🎉 All ${queue.length} card${queue.length!==1?'s':''} submitted!`);
     clearSelection();
   } else showPartForm(queue[queueIdx],queueIdx);
