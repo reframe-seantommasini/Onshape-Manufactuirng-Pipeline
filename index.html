@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Pipeline — FRC 6328 v1.32</title>
+<title>Manufacturing Pipeline — FRC 6328 v1.36</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
   :root {
@@ -149,7 +149,7 @@
     <div class="hdr-divider"></div>
     <span class="hdr-title">Mfg Pipeline</span>
     <span class="doc-badge" id="doc-label">No document</span>
-    <span style="font-size:.6rem;color:var(--muted);margin-left:4px;">v1.32</span>
+    <span style="font-size:.6rem;color:var(--muted);margin-left:4px;">v1.36</span>
   </header>
 
   <div id="selection-banner">
@@ -222,6 +222,63 @@ const OPTIONS = {
   status:    ['Needs Drawing','Needs CAM','Needs Slicing','Done!','Ready for CNC Mill','Ready for CNC Router','Done Fab Need to Powder Coat','Ready for Lathe','Ready for 3D Printer','Ready for Mill','Ready for Laser Cutter','In Progress'],
 };
 
+// ── POWDER COAT COLOR DETECTION ─────────────────────────────────────────────
+// Strategy: blacklist all known OnShape default colors so they never trigger
+// a pre-fill. Only non-default colors get matched against actual powder coat options.
+//
+// Known OnShape defaults (these are skipped):
+//   #9DCFED  light blue       #A5A5A5  mid grey
+//   #3B61B4  medium blue      #EAEAEA  white/light grey
+//   #C4E2F3  very light blue  #F88701  orange
+//   #7F7F7F  dark grey        #FAB601  gold/amber
+//   #AAAAAA  generic default grey (OnShape fallback)
+
+function hexToRgb(hex) {
+  const n = parseInt(hex.replace('#',''), 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+function colorDistance(a, b) {
+  return Math.sqrt(Math.pow(a.r-b.r,2) + Math.pow(a.g-b.g,2) + Math.pow(a.b-b.b,2));
+}
+
+const ONSHAPE_DEFAULTS = [
+  '#9DCFED','#A5A5A5','#3B61B4','#EAEAEA',
+  '#C4E2F3','#F88701','#7F7F7F','#FAB601','#AAAAAA'
+].map(hexToRgb);
+
+// Powder coat colors — your actual options with exact hex codes
+const POWDER_COAT_COLORS = {
+  'Blue':   hexToRgb('#003DB9'),
+  'Black':  hexToRgb('#404040'),
+  'Yellow': hexToRgb('#FACB43'),
+  'Pink':   hexToRgb('#FF69B4'),  // no exact code yet — hot pink placeholder
+};
+
+const DEFAULT_SKIP_THRESHOLD = 8;   // tight tolerance for "exact" match (handles float rounding)
+const MATCH_THRESHOLD        = 80;  // max distance to a powder coat color to claim a match
+
+function matchFinishColor(osColor) {
+  if (!osColor) return null;
+  // OnShape returns floats 0.0–1.0
+  const rgb = {
+    r: Math.round((osColor.red   ?? osColor.r ?? 0) * 255),
+    g: Math.round((osColor.green ?? osColor.g ?? 0) * 255),
+    b: Math.round((osColor.blue  ?? osColor.b ?? 0) * 255),
+  };
+
+  // Skip if it matches any known default color
+  const isDefault = ONSHAPE_DEFAULTS.some(d => colorDistance(rgb, d) < DEFAULT_SKIP_THRESHOLD);
+  if (isDefault) return null;
+
+  // Find nearest powder coat color
+  let best = null, bestDist = Infinity;
+  for (const [label, target] of Object.entries(POWDER_COAT_COLORS)) {
+    const d = colorDistance(rgb, target);
+    if (d < bestDist) { bestDist = d; best = label; }
+  }
+  return bestDist <= MATCH_THRESHOLD ? best : null;
+}
+
 // All credentials are Vercel server-side env vars — no config screen needed.
 // CONFIG only tracks demo mode flag; Slack/OnShape creds never touch the browser.
 let CONFIG={demo:false};
@@ -245,7 +302,7 @@ function launchApp(){
   // Retry at 2s and again at 4s if we still don't have a docId.
   function retryInit(label){
     if(docId) return;
-    console.log(`[MFG v1.32] ${label}: no docId yet, re-sending applicationInit`);
+    console.log(`[MFG v1.36] ${label}: no docId yet, re-sending applicationInit`);
     try{
       window.parent.postMessage({
         messageName: 'applicationInit',
@@ -253,7 +310,7 @@ function launchApp(){
         workspaceId: wvmId,
         elementId:   elementId
       }, osServer||'*');
-    }catch(e){ console.warn('[MFG v1.32] postMessage failed:', e); }
+    }catch(e){ console.warn('[MFG v1.36] postMessage failed:', e); }
   }
 
   setTimeout(()=>retryInit('2s retry'), 2000);
@@ -261,9 +318,9 @@ function launchApp(){
 
   setTimeout(()=>{
     if(!docId){
-      console.error('[MFG v1.32] Still no docId after 5s.');
-      console.error('[MFG v1.32] ROOT CAUSE: The OnShape dev portal Action URL is missing {$documentId} params.');
-      console.error('[MFG v1.32] Fix: set Action URL to include {$documentId}&workspaceId={$workspaceId}&elementId={$elementId}&selectedPartIds={$selectedPartIds}&server={$server}');
+      console.error('[MFG v1.36] Still no docId after 5s.');
+      console.error('[MFG v1.36] ROOT CAUSE: The OnShape dev portal Action URL is missing {$documentId} params.');
+      console.error('[MFG v1.36] Fix: set Action URL to include {$documentId}&workspaceId={$workspaceId}&elementId={$elementId}&selectedPartIds={$selectedPartIds}&server={$server}');
       document.getElementById('doc-info').textContent =
         '⚠️ No document context — Action URL is missing {$documentId} params. See browser console for exact fix.';
       document.getElementById('doc-label').textContent = 'Fix needed';
@@ -277,7 +334,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 
   // 1. RAW MESSAGE SPY — logs every postMessage before any filtering.
   window.addEventListener('message', e=>{
-    console.log('[MFG v1.32 RAW]', {
+    console.log('[MFG v1.36 RAW]', {
       origin: e.origin,
       messageName: e.data?.messageName,
       fullData: e.data
@@ -320,7 +377,7 @@ function initOnShape(){
   const selectedParam = p.get('selectedPartIds') || '';
   studioSelectedIds = selectedParam ? selectedParam.split(',').filter(Boolean) : [];
 
-  console.log('[MFG v1.32] initOnShape — URL params:', {docId, wvmType, wvmId, elementId, osServer, selectedCount: studioSelectedIds.length});
+  console.log('[MFG v1.36] initOnShape — URL params:', {docId, wvmType, wvmId, elementId, osServer, selectedCount: studioSelectedIds.length});
 
   if(docId && wvmId && elementId){
     document.getElementById('doc-label').textContent = docId.substring(0,8)+'...';
@@ -336,9 +393,9 @@ function initOnShape(){
       workspaceId:  wvmId,
       elementId:    elementId
     };
-    console.log('[MFG v1.32] Sending applicationInit with real IDs to', osServer);
+    console.log('[MFG v1.36] Sending applicationInit with real IDs to', osServer);
     try{ window.parent.postMessage(initMsg, osServer); }
-    catch(e){ console.warn('[MFG v1.32] applicationInit postMessage failed:', e); }
+    catch(e){ console.warn('[MFG v1.36] applicationInit postMessage failed:', e); }
 
     // ── keepAlive heartbeat ─────────────────────────────────────────────────
     // OnShape requires periodic keepAlive messages to keep the session alive
@@ -364,14 +421,14 @@ function initOnShape(){
 
     loadParts();
   } else {
-    console.warn('[MFG v1.32] No URL params — check Action URL includes {$documentId}, {$workspaceId}, {$elementId}, {$selectedPartIds}, {$server}');
+    console.warn('[MFG v1.36] No URL params — check Action URL includes {$documentId}, {$workspaceId}, {$elementId}, {$selectedPartIds}, {$server}');
     document.getElementById('doc-info').textContent = 'Waiting for document context...';
   }
 }
 
 // ── ONSHAPE MESSAGE HANDLER ──
 function handleOnShapeMessage(e){
-  console.log('[MFG v1.32] postMessage received:', {
+  console.log('[MFG v1.36] postMessage received:', {
     origin: e.origin,
     messageName: e.data?.messageName,
     data: e.data
@@ -381,7 +438,7 @@ function handleOnShapeMessage(e){
   // OnShape to trust our postMessages back. Fall back to cad.onshape.com if not set.
   const expectedOrigin = osServer || 'https://cad.onshape.com';
   if(e.origin !== expectedOrigin){
-    console.warn('[MFG v1.32] Unexpected origin (skipping):', e.origin, '— expected:', expectedOrigin);
+    console.warn('[MFG v1.36] Unexpected origin (skipping):', e.origin, '— expected:', expectedOrigin);
     return;
   }
 
@@ -392,7 +449,7 @@ function handleOnShapeMessage(e){
     case 'applicationElementInfo':
     case 'documentInfo':
     case 'applicationInfo':
-      console.log('[MFG v1.32] Doc context:', msg);
+      console.log('[MFG v1.36] Doc context:', msg);
       docId     = msg.documentId  || docId;
       wvmId     = msg.workspaceId || msg.wvmId || wvmId;
       elementId = msg.elementId   || elementId;
@@ -410,7 +467,7 @@ function handleOnShapeMessage(e){
     // This is how PenguinCAM resolves face clicks to part names without any API call.
     case 'contextUpdate':
       {
-        console.log('[MFG v1.32] contextUpdate — full message:', JSON.stringify(msg));
+        console.log('[MFG v1.36] contextUpdate — full message:', JSON.stringify(msg));
         // Update doc context if provided
         docId     = msg.documentId  || docId;
         wvmId     = msg.workspaceId || msg.wvmId || wvmId;
@@ -419,7 +476,7 @@ function handleOnShapeMessage(e){
         // selectedPartIds is the gold field — actual partIds for the selected geometry
         const ctxPartIds = msg.selectedPartIds || msg.partIds || [];
         if(Array.isArray(ctxPartIds) && ctxPartIds.length > 0){
-          console.log('[MFG v1.32] contextUpdate selectedPartIds:', ctxPartIds);
+          console.log('[MFG v1.36] contextUpdate selectedPartIds:', ctxPartIds);
           _applyResolvedIds(ctxPartIds);
         } else if(docId && !parts.length){
           loadParts();
@@ -432,7 +489,7 @@ function handleOnShapeMessage(e){
     case 'SELECTION':
       {
         const selArray = msg.selections || msg.selection || [];
-        console.log('[MFG v1.32] SELECTION — selArray length:', selArray.length,
+        console.log('[MFG v1.36] SELECTION — selArray length:', selArray.length,
           '| first entry:', JSON.stringify(selArray[0]));
         // Cache raw selections so isolatePart can replay them into requestSelectionHighlight
         if(Array.isArray(selArray) && selArray.length > 0){
@@ -447,16 +504,16 @@ function handleOnShapeMessage(e){
       break;
 
     case 'REQUESTED_SELECTION_HIGHLIGHT':
-      console.log('[MFG v1.32] Highlight acknowledged by OnShape');
+      console.log('[MFG v1.36] Highlight acknowledged by OnShape');
       break;
     case 'REQUESTED_SELECTION':
-      console.log('[MFG v1.32] Selection set by OnShape');
+      console.log('[MFG v1.36] Selection set by OnShape');
       break;
     case 'STOPPED_REQUEST':
-      console.log('[MFG v1.32] Request stopped by OnShape');
+      console.log('[MFG v1.36] Request stopped by OnShape');
       break;
     default:
-      console.log('[MFG v1.32] Unhandled messageName:', msg.messageName);
+      console.log('[MFG v1.36] Unhandled messageName:', msg.messageName);
   }
 }
 
@@ -476,7 +533,7 @@ async function buildFaceMap(){
   if(faceMapLoaded || !docId || !wvmId || !elementId) return;
   try {
     const data = await onshapeFetch(`/partstudios/d/${docId}/${wvmType}/${wvmId}/e/${elementId}/bodydetails`);
-    if(!data || !data.bodies) { console.warn('[MFG v1.32] bodydetails: no bodies'); return; }
+    if(!data || !data.bodies) { console.warn('[MFG v1.36] bodydetails: no bodies'); return; }
     let faceCount = 0;
     data.bodies.forEach(body => {
       const bid = body.id;
@@ -490,10 +547,10 @@ async function buildFaceMap(){
       });
     });
     faceMapLoaded = true;
-    console.log(`[MFG v1.32] Entity map built: ${faceCount} faces+edges across ${data.bodies.length} bodies`);
-    console.log('[MFG v1.32] Sample body IDs:', [...new Set(Object.values(faceToBodyId))].slice(0,5));
+    console.log(`[MFG v1.36] Entity map built: ${faceCount} faces+edges across ${data.bodies.length} bodies`);
+    console.log('[MFG v1.36] Sample body IDs:', [...new Set(Object.values(faceToBodyId))].slice(0,5));
   } catch(e) {
-    console.warn('[MFG v1.32] buildFaceMap failed:', e.message);
+    console.warn('[MFG v1.36] buildFaceMap failed:', e.message);
   }
 }
 
@@ -503,7 +560,7 @@ function resolveSelectionToParts(selArray){
   // Fast path: OnShape provided partId directly (body-level click)
   const directPartIds = selArray.map(s => s.partId).filter(Boolean);
   if(directPartIds.length > 0){
-    console.log('[MFG v1.32] Direct partIds from event:', directPartIds);
+    console.log('[MFG v1.36] Direct partIds from event:', directPartIds);
     _applyResolvedIds(directPartIds);
     return;
   }
@@ -514,8 +571,8 @@ function resolveSelectionToParts(selArray){
   const entityIds = selArray.map(s => s.selectionId || s.entityId).filter(Boolean);
   const resolvedBodyIds = [...new Set(entityIds.map(id => faceToBodyId[id]).filter(Boolean))];
 
-  console.log('[MFG v1.32] selectionIds:', entityIds);
-  console.log('[MFG v1.32] -> bodyIds from face map:', resolvedBodyIds);
+  console.log('[MFG v1.36] selectionIds:', entityIds);
+  console.log('[MFG v1.36] -> bodyIds from face map:', resolvedBodyIds);
 
   if(resolvedBodyIds.length > 0){
     _applyResolvedIds(resolvedBodyIds);
@@ -523,7 +580,7 @@ function resolveSelectionToParts(selArray){
   }
 
   // Face map not loaded yet or face IDs not in map — trigger a map build and show banner
-  console.warn('[MFG v1.32] No face map match — map loaded?', faceMapLoaded, '| triggering rebuild');
+  console.warn('[MFG v1.36] No face map match — map loaded?', faceMapLoaded, '| triggering rebuild');
   buildFaceMap().then(() => {
     const retried = [...new Set(entityIds.map(id => faceToBodyId[id]).filter(Boolean))];
     if(retried.length > 0){
@@ -545,7 +602,7 @@ function _applyResolvedIds(ids){
   document.getElementById('sel-banner-text').textContent =
     `${n} part${n!==1?'s':''} selected — tap Use Selection`;
   document.getElementById('selection-banner').classList.add('visible');
-  console.log('[MFG v1.32] studioSelectedIds:', JSON.stringify(studioSelectedIds));
+  console.log('[MFG v1.36] studioSelectedIds:', JSON.stringify(studioSelectedIds));
 }
   // Intentionally do NOT clear studioSelectedIds or hide banner on empty selection —
   // OnShape fires Array(0) events on mouse-move which would wipe the selection
@@ -576,8 +633,8 @@ function useStudioSelection(){
 }
 function autoSelectFromStudio(){
   clearSelection();
-  console.log('[MFG v1.32] Matching studioSelectedIds:', JSON.stringify(studioSelectedIds));
-  console.log('[MFG v1.32] Available part IDs:', JSON.stringify(parts.map(p=>p.id)));
+  console.log('[MFG v1.36] Matching studioSelectedIds:', JSON.stringify(studioSelectedIds));
+  console.log('[MFG v1.36] Available part IDs:', JSON.stringify(parts.map(p=>p.id)));
 
   parts.forEach(p=>{
     const match =
@@ -600,7 +657,7 @@ function autoSelectFromStudio(){
     showToast(`${selected.size} part${selected.size!==1?'s':''} loaded from selection`);
   } else {
     // Last resort: if we stored raw entity IDs and nothing matched, show a helpful message
-    console.warn('[MFG v1.32] No match. studioSelectedIds were:', studioSelectedIds,
+    console.warn('[MFG v1.36] No match. studioSelectedIds were:', studioSelectedIds,
       '— these are face/edge entity IDs. OnShape does not expose a face->part mapping in the client API. ' +
       'Try clicking directly on the part body (not a face) or use the parts list on the left.');
     showToast('Select the part body (not a face/edge) — or pick from the list', true);
@@ -621,7 +678,15 @@ async function loadParts(){
   list.innerHTML='<div class="empty-state"><span class="spinner"></span> Loading parts...</div>';
   try{
     const data=await onshapeFetch(`/parts/d/${docId}/${wvmType}/${wvmId}/e/${elementId}`);
-    renderParts(data.map(p=>({id:p.partId,bodyId:p.bodyId||'',nodeId:p.nodeId||'',name:p.name||'Unnamed Part',studio:p.elementId,partNumber:p.partNumber||''})));
+    renderParts(data.map(p=>({
+      id:         p.partId,
+      bodyId:     p.bodyId||'',
+      nodeId:     p.nodeId||'',
+      name:       p.name||'Unnamed Part',
+      studio:     p.elementId,
+      partNumber: p.partNumber||'',
+      appearance: p.appearance||null   // {color:{red,green,blue}, opacity, isGenerated}
+    })));
     buildFaceMap();  // async — maps face selectionIds -> bodyIds via /bodydetails
   }catch(err){
     list.innerHTML=`<div class="empty-state" style="color:#ef4444">Failed to load: ${err.message}</div>`;
@@ -749,10 +814,10 @@ function isolatePart(partId){
     }]
   };
 
-  console.log('[MFG v1.32] requestSelection (BODY):', partId);
+  console.log('[MFG v1.36] requestSelection (BODY):', partId);
   try {
     window.parent.postMessage(payload, osServer);
-  } catch(e) { console.warn('[MFG v1.32] requestSelection failed:', e); }
+  } catch(e) { console.warn('[MFG v1.36] requestSelection failed:', e); }
 }
 function showAllParts(){
   if(!docId || CONFIG.demo) return;
@@ -766,8 +831,8 @@ function showAllParts(){
       elementId:    elementId,
       selections:   []
     }, osServer);
-    console.log('[MFG v1.32] requestSelection cleared (empty)');
-  } catch(e) { console.warn('[MFG v1.32] requestSelection clear failed:', e); }
+    console.log('[MFG v1.36] requestSelection cleared (empty)');
+  } catch(e) { console.warn('[MFG v1.36] requestSelection clear failed:', e); }
 }
 function toggleIsolate(){
   // Don't flip isIsolated here — isolatePart/showAllParts own the flag
@@ -789,6 +854,14 @@ function startSubmission(){
 }
 function showPartForm(part,idx){
   pillState={}; attachedFile=null;
+
+  // Auto-detect powder coat color from CAD appearance and pre-select the finish pill
+  const detectedFinish = matchFinishColor(part.appearance?.color);
+  if (detectedFinish) {
+    pillState['finish'] = detectedFinish;
+    console.log(`[MFG v1.36] Auto-detected finish: ${detectedFinish} from CAD color`, part.appearance?.color);
+  }
+
   // Auto-isolate the part in the viewport when the form opens
   isolatePart(part.id);
   const cadLink=(!CONFIG.demo&&docId)?`https://cad.onshape.com/documents/${docId}/${wvmType}/${wvmId}/e/${part.studio}`:'';
@@ -940,9 +1013,15 @@ async function submitPart(){
       await new Promise(r=>setTimeout(r,700));
       console.log('DEMO:',payload);
     } else {
-      // 1. Post the card first so students aren't waiting
+      // 1. Post the card to Slack chat AND add a List row — in parallel
       btn.innerHTML='<span class="spinner"></span> Posting card...';
-      await postToSlack(payload);
+      const [, listResult] = await Promise.allSettled([
+        postToSlack(payload),
+        addToSlackList(payload)
+      ]);
+      if (listResult.status === 'rejected') {
+        showToast(`⚠️ List row failed: ${listResult.reason?.message}`, true);
+      }
 
       // 2. Export + upload STEP file
       btn.innerHTML='<span class="spinner"></span> Exporting STEP...';
@@ -989,6 +1068,18 @@ function addToHistory(p){
     <div class="history-item-meta">Qty: ${p.qty} · ${p.submittedAt}</div>
     <div class="history-tags">${tags.map(t=>`<span class="htag">${t}</span>`).join('')}</div>`;
   list.prepend(el);
+}
+
+// ── SLACK LIST ──
+async function addToSlackList(p){
+  const resp = await fetch('/api/slack', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'addListItem', payload: p })
+  });
+  const data = await resp.json();
+  if (!data.ok) throw new Error(data.error || 'List proxy error');
+  return data;
 }
 
 // ── SLACK ──
