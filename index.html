@@ -232,6 +232,7 @@ let parts=[], selected=new Set();
 let queue=[], queueIdx=0;
 let isIsolated=false;
 let faceToBodyId={};  // entityId (face OR edge selectionId) -> bodyId, built from /bodydetails
+let lastRawSelections=[];  // raw selArray from last SELECTION event — used to replay into requestSelectionHighlight
 
 function useDemoMode(){CONFIG.demo=true;launchApp();}
 function launchApp(){
@@ -433,6 +434,10 @@ function handleOnShapeMessage(e){
         const selArray = msg.selections || msg.selection || [];
         console.log('[MFG v1.31] SELECTION — selArray length:', selArray.length,
           '| first entry:', JSON.stringify(selArray[0]));
+        // Cache raw selections so isolatePart can replay them into requestSelectionHighlight
+        if(Array.isArray(selArray) && selArray.length > 0){
+          lastRawSelections = selArray;
+        }
         if(!Array.isArray(selArray) || selArray.length === 0){
           handleStudioSelectionChange([]);
           break;
@@ -441,6 +446,12 @@ function handleOnShapeMessage(e){
       }
       break;
 
+    case 'REQUESTED_SELECTION_HIGHLIGHT':
+      console.log('[MFG v1.31] Highlight acknowledged by OnShape');
+      break;
+    case 'STOPPED_REQUEST':
+      console.log('[MFG v1.31] Highlight cleared by OnShape');
+      break;
     default:
       console.log('[MFG v1.31] Unhandled messageName:', msg.messageName);
   }
@@ -718,19 +729,48 @@ function getPillVal(key){return pillState[key]||'';}
 // Right Panel extensions do NOT support 'isolate' or 'showAll' postMessages —
 // those only work in Element Tab extensions. The supported equivalent is
 // 'requestSelectionHighlight', which dims everything except the highlighted entity.
-// We pass the part's bodyId (the occurrencePath token OnShape expects).
+//
+// The docs don't specify the payload shape for Part Studio context. We try two approaches:
+// 1. Mirror the SELECTION event format back (selectionId + entityType per entity)
+// 2. Fall back to occurrencePaths if no cached entity selections exist
 function isolatePart(partId){
   if(!docId || CONFIG.demo) return;
   isIsolated = true;
+
+  // Build selections array from cached raw SELECTION data for this part
+  // Filter to only entities that belong to this partId via the face map
+  const entitySelections = lastRawSelections
+    .filter(s => {
+      const eid = s.selectionId || s.entityId;
+      return eid && faceToBodyId[eid] === partId;
+    })
+    .map(s => ({
+      selectionType: s.selectionType || 'ENTITY',
+      selectionId:   s.selectionId || s.entityId,
+      entityType:    s.entityType || 'FACE',
+      occurrencePath: s.occurrencePath || []
+    }));
+
+  // If we have entity-level data for this part, use it; otherwise fall back to body path
+  const payload = entitySelections.length > 0
+    ? {
+        messageName:  'requestSelectionHighlight',
+        documentId:    docId,
+        workspaceId:   wvmId,
+        elementId:     elementId,
+        selections:    entitySelections
+      }
+    : {
+        messageName:  'requestSelectionHighlight',
+        documentId:    docId,
+        workspaceId:   wvmId,
+        elementId:     elementId,
+        occurrencePaths: [[partId]]
+      };
+
+  console.log('[MFG v1.31] requestSelectionHighlight payload:', JSON.stringify(payload));
   try {
-    window.parent.postMessage({
-      messageName:  'requestSelectionHighlight',
-      documentId:    docId,
-      workspaceId:   wvmId,
-      elementId:     elementId,
-      occurrencePaths: [[partId]]   // array-of-arrays: each inner array is one occurrence path
-    }, osServer);
-    console.log('[MFG v1.31] requestSelectionHighlight partId:', partId);
+    window.parent.postMessage(payload, osServer);
   } catch(e) { console.warn('[MFG v1.31] requestSelectionHighlight failed:', e); }
 }
 function showAllParts(){
