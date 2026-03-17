@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Pipeline — FRC 6328 v1.30</title>
+<title>Manufacturing Pipeline — FRC 6328 v1.31</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
   :root {
@@ -149,7 +149,7 @@
     <div class="hdr-divider"></div>
     <span class="hdr-title">Mfg Pipeline</span>
     <span class="doc-badge" id="doc-label">No document</span>
-    <span style="font-size:.6rem;color:var(--muted);margin-left:4px;">v1.30</span>
+    <span style="font-size:.6rem;color:var(--muted);margin-left:4px;">v1.31</span>
   </header>
 
   <div id="selection-banner">
@@ -231,7 +231,7 @@ let docId='', wvmType='w', wvmId='', elementId='', osServer='https://cad.onshape
 let parts=[], selected=new Set();
 let queue=[], queueIdx=0;
 let isIsolated=false;
-let faceToBodyId={};  // faceId (selectionId) -> bodyId, built from /bodydetails
+let faceToBodyId={};  // entityId (face OR edge selectionId) -> bodyId, built from /bodydetails
 
 function useDemoMode(){CONFIG.demo=true;launchApp();}
 function launchApp(){
@@ -244,7 +244,7 @@ function launchApp(){
   // Retry at 2s and again at 4s if we still don't have a docId.
   function retryInit(label){
     if(docId) return;
-    console.log(`[MFG v1.30] ${label}: no docId yet, re-sending applicationInit`);
+    console.log(`[MFG v1.31] ${label}: no docId yet, re-sending applicationInit`);
     try{
       window.parent.postMessage({
         messageName: 'applicationInit',
@@ -252,7 +252,7 @@ function launchApp(){
         workspaceId: wvmId,
         elementId:   elementId
       }, osServer||'*');
-    }catch(e){ console.warn('[MFG v1.30] postMessage failed:', e); }
+    }catch(e){ console.warn('[MFG v1.31] postMessage failed:', e); }
   }
 
   setTimeout(()=>retryInit('2s retry'), 2000);
@@ -260,9 +260,9 @@ function launchApp(){
 
   setTimeout(()=>{
     if(!docId){
-      console.error('[MFG v1.30] Still no docId after 5s.');
-      console.error('[MFG v1.30] ROOT CAUSE: The OnShape dev portal Action URL is missing {$documentId} params.');
-      console.error('[MFG v1.30] Fix: set Action URL to include {$documentId}&workspaceId={$workspaceId}&elementId={$elementId}&selectedPartIds={$selectedPartIds}&server={$server}');
+      console.error('[MFG v1.31] Still no docId after 5s.');
+      console.error('[MFG v1.31] ROOT CAUSE: The OnShape dev portal Action URL is missing {$documentId} params.');
+      console.error('[MFG v1.31] Fix: set Action URL to include {$documentId}&workspaceId={$workspaceId}&elementId={$elementId}&selectedPartIds={$selectedPartIds}&server={$server}');
       document.getElementById('doc-info').textContent =
         '⚠️ No document context — Action URL is missing {$documentId} params. See browser console for exact fix.';
       document.getElementById('doc-label').textContent = 'Fix needed';
@@ -276,7 +276,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 
   // 1. RAW MESSAGE SPY — logs every postMessage before any filtering.
   window.addEventListener('message', e=>{
-    console.log('[MFG v1.30 RAW]', {
+    console.log('[MFG v1.31 RAW]', {
       origin: e.origin,
       messageName: e.data?.messageName,
       fullData: e.data
@@ -319,7 +319,7 @@ function initOnShape(){
   const selectedParam = p.get('selectedPartIds') || '';
   studioSelectedIds = selectedParam ? selectedParam.split(',').filter(Boolean) : [];
 
-  console.log('[MFG v1.30] initOnShape — URL params:', {docId, wvmType, wvmId, elementId, osServer, selectedCount: studioSelectedIds.length});
+  console.log('[MFG v1.31] initOnShape — URL params:', {docId, wvmType, wvmId, elementId, osServer, selectedCount: studioSelectedIds.length});
 
   if(docId && wvmId && elementId){
     document.getElementById('doc-label').textContent = docId.substring(0,8)+'...';
@@ -335,9 +335,9 @@ function initOnShape(){
       workspaceId:  wvmId,
       elementId:    elementId
     };
-    console.log('[MFG v1.30] Sending applicationInit with real IDs to', osServer);
+    console.log('[MFG v1.31] Sending applicationInit with real IDs to', osServer);
     try{ window.parent.postMessage(initMsg, osServer); }
-    catch(e){ console.warn('[MFG v1.30] applicationInit postMessage failed:', e); }
+    catch(e){ console.warn('[MFG v1.31] applicationInit postMessage failed:', e); }
 
     // ── keepAlive heartbeat ─────────────────────────────────────────────────
     // OnShape requires periodic keepAlive messages to keep the session alive
@@ -363,14 +363,14 @@ function initOnShape(){
 
     loadParts();
   } else {
-    console.warn('[MFG v1.30] No URL params — check Action URL includes {$documentId}, {$workspaceId}, {$elementId}, {$selectedPartIds}, {$server}');
+    console.warn('[MFG v1.31] No URL params — check Action URL includes {$documentId}, {$workspaceId}, {$elementId}, {$selectedPartIds}, {$server}');
     document.getElementById('doc-info').textContent = 'Waiting for document context...';
   }
 }
 
 // ── ONSHAPE MESSAGE HANDLER ──
 function handleOnShapeMessage(e){
-  console.log('[MFG v1.30] postMessage received:', {
+  console.log('[MFG v1.31] postMessage received:', {
     origin: e.origin,
     messageName: e.data?.messageName,
     data: e.data
@@ -380,7 +380,7 @@ function handleOnShapeMessage(e){
   // OnShape to trust our postMessages back. Fall back to cad.onshape.com if not set.
   const expectedOrigin = osServer || 'https://cad.onshape.com';
   if(e.origin !== expectedOrigin){
-    console.warn('[MFG v1.30] Unexpected origin (skipping):', e.origin, '— expected:', expectedOrigin);
+    console.warn('[MFG v1.31] Unexpected origin (skipping):', e.origin, '— expected:', expectedOrigin);
     return;
   }
 
@@ -391,7 +391,7 @@ function handleOnShapeMessage(e){
     case 'applicationElementInfo':
     case 'documentInfo':
     case 'applicationInfo':
-      console.log('[MFG v1.30] Doc context:', msg);
+      console.log('[MFG v1.31] Doc context:', msg);
       docId     = msg.documentId  || docId;
       wvmId     = msg.workspaceId || msg.wvmId || wvmId;
       elementId = msg.elementId   || elementId;
@@ -409,7 +409,7 @@ function handleOnShapeMessage(e){
     // This is how PenguinCAM resolves face clicks to part names without any API call.
     case 'contextUpdate':
       {
-        console.log('[MFG v1.30] contextUpdate — full message:', JSON.stringify(msg));
+        console.log('[MFG v1.31] contextUpdate — full message:', JSON.stringify(msg));
         // Update doc context if provided
         docId     = msg.documentId  || docId;
         wvmId     = msg.workspaceId || msg.wvmId || wvmId;
@@ -418,7 +418,7 @@ function handleOnShapeMessage(e){
         // selectedPartIds is the gold field — actual partIds for the selected geometry
         const ctxPartIds = msg.selectedPartIds || msg.partIds || [];
         if(Array.isArray(ctxPartIds) && ctxPartIds.length > 0){
-          console.log('[MFG v1.30] contextUpdate selectedPartIds:', ctxPartIds);
+          console.log('[MFG v1.31] contextUpdate selectedPartIds:', ctxPartIds);
           _applyResolvedIds(ctxPartIds);
         } else if(docId && !parts.length){
           loadParts();
@@ -431,7 +431,7 @@ function handleOnShapeMessage(e){
     case 'SELECTION':
       {
         const selArray = msg.selections || msg.selection || [];
-        console.log('[MFG v1.30] SELECTION — selArray length:', selArray.length,
+        console.log('[MFG v1.31] SELECTION — selArray length:', selArray.length,
           '| first entry:', JSON.stringify(selArray[0]));
         if(!Array.isArray(selArray) || selArray.length === 0){
           handleStudioSelectionChange([]);
@@ -442,7 +442,7 @@ function handleOnShapeMessage(e){
       break;
 
     default:
-      console.log('[MFG v1.30] Unhandled messageName:', msg.messageName);
+      console.log('[MFG v1.31] Unhandled messageName:', msg.messageName);
   }
 }
 
@@ -462,20 +462,24 @@ async function buildFaceMap(){
   if(faceMapLoaded || !docId || !wvmId || !elementId) return;
   try {
     const data = await onshapeFetch(`/partstudios/d/${docId}/${wvmType}/${wvmId}/e/${elementId}/bodydetails`);
-    if(!data || !data.bodies) { console.warn('[MFG v1.30] bodydetails: no bodies'); return; }
+    if(!data || !data.bodies) { console.warn('[MFG v1.31] bodydetails: no bodies'); return; }
     let faceCount = 0;
     data.bodies.forEach(body => {
       const bid = body.id;
       if(!bid) return;
+      // Index faces AND edges — both send selectionId values in SELECTION events
       (body.faces || []).forEach(face => {
         if(face.id){ faceToBodyId[face.id] = bid; faceCount++; }
       });
+      (body.edges || []).forEach(edge => {
+        if(edge.id){ faceToBodyId[edge.id] = bid; faceCount++; }
+      });
     });
     faceMapLoaded = true;
-    console.log(`[MFG v1.30] Face map built: ${faceCount} faces across ${data.bodies.length} bodies`);
-    console.log('[MFG v1.30] Sample body IDs:', [...new Set(Object.values(faceToBodyId))].slice(0,5));
+    console.log(`[MFG v1.31] Entity map built: ${faceCount} faces+edges across ${data.bodies.length} bodies`);
+    console.log('[MFG v1.31] Sample body IDs:', [...new Set(Object.values(faceToBodyId))].slice(0,5));
   } catch(e) {
-    console.warn('[MFG v1.30] buildFaceMap failed:', e.message);
+    console.warn('[MFG v1.31] buildFaceMap failed:', e.message);
   }
 }
 
@@ -485,7 +489,7 @@ function resolveSelectionToParts(selArray){
   // Fast path: OnShape provided partId directly (body-level click)
   const directPartIds = selArray.map(s => s.partId).filter(Boolean);
   if(directPartIds.length > 0){
-    console.log('[MFG v1.30] Direct partIds from event:', directPartIds);
+    console.log('[MFG v1.31] Direct partIds from event:', directPartIds);
     _applyResolvedIds(directPartIds);
     return;
   }
@@ -496,8 +500,8 @@ function resolveSelectionToParts(selArray){
   const entityIds = selArray.map(s => s.selectionId || s.entityId).filter(Boolean);
   const resolvedBodyIds = [...new Set(entityIds.map(id => faceToBodyId[id]).filter(Boolean))];
 
-  console.log('[MFG v1.30] selectionIds:', entityIds);
-  console.log('[MFG v1.30] -> bodyIds from face map:', resolvedBodyIds);
+  console.log('[MFG v1.31] selectionIds:', entityIds);
+  console.log('[MFG v1.31] -> bodyIds from face map:', resolvedBodyIds);
 
   if(resolvedBodyIds.length > 0){
     _applyResolvedIds(resolvedBodyIds);
@@ -505,7 +509,7 @@ function resolveSelectionToParts(selArray){
   }
 
   // Face map not loaded yet or face IDs not in map — trigger a map build and show banner
-  console.warn('[MFG v1.30] No face map match — map loaded?', faceMapLoaded, '| triggering rebuild');
+  console.warn('[MFG v1.31] No face map match — map loaded?', faceMapLoaded, '| triggering rebuild');
   buildFaceMap().then(() => {
     const retried = [...new Set(entityIds.map(id => faceToBodyId[id]).filter(Boolean))];
     if(retried.length > 0){
@@ -527,7 +531,7 @@ function _applyResolvedIds(ids){
   document.getElementById('sel-banner-text').textContent =
     `${n} part${n!==1?'s':''} selected — tap Use Selection`;
   document.getElementById('selection-banner').classList.add('visible');
-  console.log('[MFG v1.30] studioSelectedIds:', JSON.stringify(studioSelectedIds));
+  console.log('[MFG v1.31] studioSelectedIds:', JSON.stringify(studioSelectedIds));
 }
   // Intentionally do NOT clear studioSelectedIds or hide banner on empty selection —
   // OnShape fires Array(0) events on mouse-move which would wipe the selection
@@ -558,8 +562,8 @@ function useStudioSelection(){
 }
 function autoSelectFromStudio(){
   clearSelection();
-  console.log('[MFG v1.30] Matching studioSelectedIds:', JSON.stringify(studioSelectedIds));
-  console.log('[MFG v1.30] Available part IDs:', JSON.stringify(parts.map(p=>p.id)));
+  console.log('[MFG v1.31] Matching studioSelectedIds:', JSON.stringify(studioSelectedIds));
+  console.log('[MFG v1.31] Available part IDs:', JSON.stringify(parts.map(p=>p.id)));
 
   parts.forEach(p=>{
     const match =
@@ -582,7 +586,7 @@ function autoSelectFromStudio(){
     showToast(`${selected.size} part${selected.size!==1?'s':''} loaded from selection`);
   } else {
     // Last resort: if we stored raw entity IDs and nothing matched, show a helpful message
-    console.warn('[MFG v1.30] No match. studioSelectedIds were:', studioSelectedIds,
+    console.warn('[MFG v1.31] No match. studioSelectedIds were:', studioSelectedIds,
       '— these are face/edge entity IDs. OnShape does not expose a face->part mapping in the client API. ' +
       'Try clicking directly on the part body (not a face) or use the parts list on the left.');
     showToast('Select the part body (not a face/edge) — or pick from the list', true);
@@ -710,48 +714,47 @@ function pillCustomInput(key,val){
 }
 function getPillVal(key){return pillState[key]||'';}
 
-// ── ISOLATE ──
-// OnShape supports an 'isolate' postMessage that hides all parts except the specified ones.
-// This helps students visually confirm which part they're filling a card out for.
+// ── ISOLATE / HIGHLIGHT ──
+// Right Panel extensions do NOT support 'isolate' or 'showAll' postMessages —
+// those only work in Element Tab extensions. The supported equivalent is
+// 'requestSelectionHighlight', which dims everything except the highlighted entity.
+// We pass the part's bodyId (the occurrencePath token OnShape expects).
 function isolatePart(partId){
   if(!docId || CONFIG.demo) return;
   isIsolated = true;
-  const btn = document.getElementById('isolate-btn');
-  if(btn){ btn.textContent = '⊙ Isolate'; btn.style.color = 'var(--gold)'; }
   try {
     window.parent.postMessage({
-      messageName: 'isolate',
-      documentId:   docId,
-      workspaceId:  wvmId,
-      elementId:    elementId,
-      partIds: [partId]
+      messageName:  'requestSelectionHighlight',
+      documentId:    docId,
+      workspaceId:   wvmId,
+      elementId:     elementId,
+      occurrencePaths: [[partId]]   // array-of-arrays: each inner array is one occurrence path
     }, osServer);
-    console.log('[MFG v1.30] Isolated partId:', partId);
-  } catch(e) { console.warn('[MFG v1.30] isolate postMessage failed:', e); }
+    console.log('[MFG v1.31] requestSelectionHighlight partId:', partId);
+  } catch(e) { console.warn('[MFG v1.31] requestSelectionHighlight failed:', e); }
 }
 function showAllParts(){
   if(!docId || CONFIG.demo) return;
   isIsolated = false;
-  const btn = document.getElementById('isolate-btn');
-  if(btn){ btn.textContent = '⊙ Isolate'; btn.style.color = 'var(--gold)'; }
   try {
+    // stopRequest cancels any active requestSelectionHighlight
     window.parent.postMessage({
-      messageName: 'showAll',
+      messageName: 'stopRequest',
       documentId:   docId,
       workspaceId:  wvmId,
       elementId:    elementId
     }, osServer);
-    console.log('[MFG v1.30] showAll sent');
-  } catch(e) { console.warn('[MFG v1.30] showAll postMessage failed:', e); }
+    console.log('[MFG v1.31] stopRequest (highlight cleared)');
+  } catch(e) { console.warn('[MFG v1.31] stopRequest failed:', e); }
 }
 function toggleIsolate(){
+  // Don't flip isIsolated here — isolatePart/showAllParts own the flag
   if(isIsolated){
     showAllParts();
   } else {
     const part = queue[queueIdx];
     if(part) isolatePart(part.id);
   }
-  isIsolated = !isIsolated;
   const btn = document.getElementById('isolate-btn');
   if(btn) btn.textContent = isIsolated ? '⊙ Show All' : '⊙ Isolate';
 }
@@ -830,7 +833,7 @@ async function exportStepFile(part) {
   if (!docId || !wvmId || !part.studio) return null;
 
   // 1. Request translation via proxy
-  const transPath = `/partstudios/d/${docId}/w/${wvmId}/e/${part.studio}/translations`;
+  const transPath = `/partstudios/d/${docId}/${wvmType}/${wvmId}/e/${part.studio}/translations`;
   const transResp = await fetch('/api/onshape?path=' + encodeURIComponent(transPath), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
