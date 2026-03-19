@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Pipeline — FRC 6328 v1.45</title>
+<title>Manufacturing Pipeline — FRC 6328 v1.46</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
   :root {
@@ -149,7 +149,7 @@
     <div class="hdr-divider"></div>
     <span class="hdr-title">Mfg Pipeline</span>
     <span class="doc-badge" id="doc-label">No document</span>
-    <span style="font-size:.6rem;color:var(--muted);margin-left:4px;">v1.45</span>
+    <span style="font-size:.6rem;color:var(--muted);margin-left:4px;">v1.46</span>
   </header>
 
   <div id="selection-banner">
@@ -295,38 +295,40 @@ async function autoDetectPlate(part) {
   // Returns { partType: 'Plate', thickness: '1/8 in' } or null if no match.
   console.log('[MFG autoDetect]', { docId, wvmId, partId: part.id, studio: part.studio });
   if (CONFIG.demo) return null;
-  if (!docId || !wvmId || !part.studio || !part.id) return null;
-  try {
-    // /parts/.../massproperties returns boundingBox per part (unlike /partstudios version)
-    const path = `/parts/d/${docId}/${wvmType}/${wvmId}/e/${part.studio}/partid/${encodeURIComponent(part.id)}/massproperties`;
-    const resp = await fetch(`/api/onshape?path=${encodeURIComponent(path)}`);
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    // Response has a "bodies" object keyed by partId, or "-all-"
-    const mp = data.bodies?.[part.id] ?? data.bodies?.['-all-'] ?? Object.values(data.bodies ?? {})[0];
-    if (!mp?.boundingBox) {
-      console.log('[MFG autoDetect] No boundingBox in response:', JSON.stringify(data).slice(0, 300));
-      return null;
-    }
-    const bb = mp.boundingBox; // { highX, highY, highZ, lowX, lowY, lowZ } in meters
-    const dims = [
-      Math.abs(bb.highX - bb.lowX),
-      Math.abs(bb.highY - bb.lowY),
-      Math.abs(bb.highZ - bb.lowZ),
-    ].map(m => m * 39.3701); // meters → inches
-    const minDim = Math.min(...dims);
-    for (const t of PLATE_THICKNESSES_IN) {
-      if (Math.abs(minDim - t.value) <= PLATE_TOLERANCE_IN) {
-        console.log(`[MFG v1.45] Auto-detected plate — min dim ${minDim.toFixed(4)}" → ${t.label}`);
-        return { partType: 'Plate', thickness: t.label };
-      }
-    }
-    console.log(`[MFG v1.45] No plate match — bounding box min dim: ${minDim.toFixed(4)}"`);
-    return null;
-  } catch (e) {
-    console.warn('[MFG v1.45] autoDetectPlate failed:', e.message);
+  if (!part.id) return null;
+
+  // bodyBounds is populated by buildFaceMap() from /bodydetails — no extra API call needed.
+  // body.id from /bodydetails == part.id from /parts (both are the short partId string).
+  const bb = bodyBounds[part.id];
+  if (!bb) {
+    console.log(`[MFG autoDetect] No bounds for partId ${part.id} — bodyBounds keys:`, Object.keys(bodyBounds).slice(0,5));
     return null;
   }
+
+  // Normalize field names — /bodydetails may use different key shapes
+  const minX = bb.minX ?? bb.lowX ?? bb.minCorner?.x ?? 0;
+  const maxX = bb.maxX ?? bb.highX ?? bb.maxCorner?.x ?? 0;
+  const minY = bb.minY ?? bb.lowY ?? bb.minCorner?.y ?? 0;
+  const maxY = bb.maxY ?? bb.highY ?? bb.maxCorner?.y ?? 0;
+  const minZ = bb.minZ ?? bb.lowZ ?? bb.minCorner?.z ?? 0;
+  const maxZ = bb.maxZ ?? bb.highZ ?? bb.maxCorner?.z ?? 0;
+
+  const dims = [
+    Math.abs(maxX - minX),
+    Math.abs(maxY - minY),
+    Math.abs(maxZ - minZ),
+  ].map(m => m * 39.3701); // meters → inches
+  const minDim = Math.min(...dims);
+  console.log(`[MFG autoDetect] dims (in): ${dims.map(d=>d.toFixed(4)).join(' x ')}, min: ${minDim.toFixed(4)}`);
+
+  for (const t of PLATE_THICKNESSES_IN) {
+    if (Math.abs(minDim - t.value) <= PLATE_TOLERANCE_IN) {
+      console.log(`[MFG v1.46] Auto-detected plate — min dim ${minDim.toFixed(4)}" → ${t.label}`);
+      return { partType: 'Plate', thickness: t.label };
+    }
+  }
+  console.log(`[MFG v1.46] No plate match — bounding box min dim: ${minDim.toFixed(4)}"`);
+  return null;
 }
 
 // All credentials are Vercel server-side env vars — no config screen needed.
@@ -338,6 +340,7 @@ let docId='', wvmType='w', wvmId='', elementId='', osServer='https://cad.onshape
 let parts=[], selected=new Set();
 let queue=[], queueIdx=0;
 let faceToBodyId={};  // entityId (face OR edge selectionId) -> bodyId, built from /bodydetails
+let bodyBounds={};    // bodyId -> bounding box object, populated alongside faceToBodyId
 
 function useDemoMode(){CONFIG.demo=true;launchApp();}
 function launchApp(){
@@ -350,7 +353,7 @@ function launchApp(){
   // Retry at 2s and again at 4s if we still don't have a docId.
   function retryInit(label){
     if(docId) return;
-    console.log(`[MFG v1.45] ${label}: no docId yet, re-sending applicationInit`);
+    console.log(`[MFG v1.46] ${label}: no docId yet, re-sending applicationInit`);
     try{
       window.parent.postMessage({
         messageName: 'applicationInit',
@@ -358,7 +361,7 @@ function launchApp(){
         workspaceId: wvmId,
         elementId:   elementId
       }, osServer||'*');
-    }catch(e){ console.warn('[MFG v1.45] postMessage failed:', e); }
+    }catch(e){ console.warn('[MFG v1.46] postMessage failed:', e); }
   }
 
   setTimeout(()=>retryInit('2s retry'), 2000);
@@ -366,9 +369,9 @@ function launchApp(){
 
   setTimeout(()=>{
     if(!docId){
-      console.error('[MFG v1.45] Still no docId after 5s.');
-      console.error('[MFG v1.45] ROOT CAUSE: The OnShape dev portal Action URL is missing {$documentId} params.');
-      console.error('[MFG v1.45] Fix: set Action URL to include {$documentId}&workspaceId={$workspaceId}&elementId={$elementId}&selectedPartIds={$selectedPartIds}&server={$server}');
+      console.error('[MFG v1.46] Still no docId after 5s.');
+      console.error('[MFG v1.46] ROOT CAUSE: The OnShape dev portal Action URL is missing {$documentId} params.');
+      console.error('[MFG v1.46] Fix: set Action URL to include {$documentId}&workspaceId={$workspaceId}&elementId={$elementId}&selectedPartIds={$selectedPartIds}&server={$server}');
       document.getElementById('doc-info').textContent =
         '⚠️ No document context — Action URL is missing {$documentId} params. See browser console for exact fix.';
       document.getElementById('doc-label').textContent = 'Fix needed';
@@ -382,7 +385,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 
   // 1. RAW MESSAGE SPY — logs every postMessage before any filtering.
   window.addEventListener('message', e=>{
-    console.log('[MFG v1.45 RAW]', {
+    console.log('[MFG v1.46 RAW]', {
       origin: e.origin,
       messageName: e.data?.messageName,
       fullData: e.data
@@ -425,7 +428,7 @@ function initOnShape(){
   const selectedParam = p.get('selectedPartIds') || '';
   studioSelectedIds = selectedParam ? selectedParam.split(',').filter(Boolean) : [];
 
-  console.log('[MFG v1.45] initOnShape — URL params:', {docId, wvmType, wvmId, elementId, osServer, selectedCount: studioSelectedIds.length});
+  console.log('[MFG v1.46] initOnShape — URL params:', {docId, wvmType, wvmId, elementId, osServer, selectedCount: studioSelectedIds.length});
 
   if(docId && wvmId && elementId){
     document.getElementById('doc-label').textContent = docId.substring(0,8)+'...';
@@ -441,9 +444,9 @@ function initOnShape(){
       workspaceId:  wvmId,
       elementId:    elementId
     };
-    console.log('[MFG v1.45] Sending applicationInit with real IDs to', osServer);
+    console.log('[MFG v1.46] Sending applicationInit with real IDs to', osServer);
     try{ window.parent.postMessage(initMsg, osServer); }
-    catch(e){ console.warn('[MFG v1.45] applicationInit postMessage failed:', e); }
+    catch(e){ console.warn('[MFG v1.46] applicationInit postMessage failed:', e); }
 
     // ── keepAlive heartbeat ─────────────────────────────────────────────────
     // OnShape requires periodic keepAlive messages to keep the session alive
@@ -469,14 +472,14 @@ function initOnShape(){
 
     loadParts();
   } else {
-    console.warn('[MFG v1.45] No URL params — check Action URL includes {$documentId}, {$workspaceId}, {$elementId}, {$selectedPartIds}, {$server}');
+    console.warn('[MFG v1.46] No URL params — check Action URL includes {$documentId}, {$workspaceId}, {$elementId}, {$selectedPartIds}, {$server}');
     document.getElementById('doc-info').textContent = 'Waiting for document context...';
   }
 }
 
 // ── ONSHAPE MESSAGE HANDLER ──
 function handleOnShapeMessage(e){
-  console.log('[MFG v1.45] postMessage received:', {
+  console.log('[MFG v1.46] postMessage received:', {
     origin: e.origin,
     messageName: e.data?.messageName,
     data: e.data
@@ -486,7 +489,7 @@ function handleOnShapeMessage(e){
   // OnShape to trust our postMessages back. Fall back to cad.onshape.com if not set.
   const expectedOrigin = osServer || 'https://cad.onshape.com';
   if(e.origin !== expectedOrigin){
-    console.warn('[MFG v1.45] Unexpected origin (skipping):', e.origin, '— expected:', expectedOrigin);
+    console.warn('[MFG v1.46] Unexpected origin (skipping):', e.origin, '— expected:', expectedOrigin);
     return;
   }
 
@@ -497,7 +500,7 @@ function handleOnShapeMessage(e){
     case 'applicationElementInfo':
     case 'documentInfo':
     case 'applicationInfo':
-      console.log('[MFG v1.45] Doc context:', msg);
+      console.log('[MFG v1.46] Doc context:', msg);
       docId     = msg.documentId  || docId;
       wvmId     = msg.workspaceId || msg.wvmId || wvmId;
       elementId = msg.elementId   || elementId;
@@ -515,7 +518,7 @@ function handleOnShapeMessage(e){
     // This is how PenguinCAM resolves face clicks to part names without any API call.
     case 'contextUpdate':
       {
-        console.log('[MFG v1.45] contextUpdate — full message:', JSON.stringify(msg));
+        console.log('[MFG v1.46] contextUpdate — full message:', JSON.stringify(msg));
         // Update doc context if provided
         docId     = msg.documentId  || docId;
         wvmId     = msg.workspaceId || msg.wvmId || wvmId;
@@ -524,7 +527,7 @@ function handleOnShapeMessage(e){
         // selectedPartIds is the gold field — actual partIds for the selected geometry
         const ctxPartIds = msg.selectedPartIds || msg.partIds || [];
         if(Array.isArray(ctxPartIds) && ctxPartIds.length > 0){
-          console.log('[MFG v1.45] contextUpdate selectedPartIds:', ctxPartIds);
+          console.log('[MFG v1.46] contextUpdate selectedPartIds:', ctxPartIds);
           _applyResolvedIds(ctxPartIds);
         } else if(docId && !parts.length){
           loadParts();
@@ -537,7 +540,7 @@ function handleOnShapeMessage(e){
     case 'SELECTION':
       {
         const selArray = msg.selections || msg.selection || [];
-        console.log('[MFG v1.45] SELECTION — selArray length:', selArray.length,
+        console.log('[MFG v1.46] SELECTION — selArray length:', selArray.length,
           '| first entry:', JSON.stringify(selArray[0]));
         if(!Array.isArray(selArray) || selArray.length === 0){
           handleStudioSelectionChange([]);
@@ -548,7 +551,7 @@ function handleOnShapeMessage(e){
       break;
 
     default:
-      console.log('[MFG v1.45] Unhandled messageName:', msg.messageName);
+      console.log('[MFG v1.46] Unhandled messageName:', msg.messageName);
   }
 }
 
@@ -564,11 +567,13 @@ function handleOnShapeMessage(e){
 // that OnShape sends in SELECTION events. This is the correct bridge between the two ID spaces.
 let faceMapLoaded = false;
 
+let bodyBounds = {}; // bodyId -> { minX, minY, minZ, maxX, maxY, maxZ } in meters, from /bodydetails
+
 async function buildFaceMap(){
   if(faceMapLoaded || !docId || !wvmId || !elementId) return;
   try {
     const data = await onshapeFetch(`/partstudios/d/${docId}/${wvmType}/${wvmId}/e/${elementId}/bodydetails`);
-    if(!data || !data.bodies) { console.warn('[MFG v1.45] bodydetails: no bodies'); return; }
+    if(!data || !data.bodies) { console.warn('[MFG v1.46] bodydetails: no bodies'); return; }
     let faceCount = 0;
     data.bodies.forEach(body => {
       const bid = body.id;
@@ -580,12 +585,24 @@ async function buildFaceMap(){
       (body.edges || []).forEach(edge => {
         if(edge.id){ faceToBodyId[edge.id] = bid; faceCount++; }
       });
+      // Store bounding box if present (field names vary — capture whatever is available)
+      if(body.bounds) {
+        bodyBounds[bid] = body.bounds;
+      } else if(body.boundingBox) {
+        bodyBounds[bid] = body.boundingBox;
+      } else {
+        // Log first body's keys so we can find the right field name
+        if(Object.keys(bodyBounds).length === 0) {
+          console.log('[MFG v1.46] First body keys:', Object.keys(body));
+        }
+      }
     });
     faceMapLoaded = true;
-    console.log(`[MFG v1.45] Entity map built: ${faceCount} faces+edges across ${data.bodies.length} bodies`);
-    console.log('[MFG v1.45] Sample body IDs:', [...new Set(Object.values(faceToBodyId))].slice(0,5));
+    console.log(`[MFG v1.46] Entity map built: ${faceCount} faces+edges across ${data.bodies.length} bodies`);
+    console.log('[MFG v1.46] Sample body IDs:', [...new Set(Object.values(faceToBodyId))].slice(0,5));
+    console.log('[MFG v1.46] bodyBounds sample:', Object.entries(bodyBounds).slice(0,2));
   } catch(e) {
-    console.warn('[MFG v1.45] buildFaceMap failed:', e.message);
+    console.warn('[MFG v1.46] buildFaceMap failed:', e.message);
   }
 }
 
@@ -595,7 +612,7 @@ function resolveSelectionToParts(selArray){
   // Fast path: OnShape provided partId directly (body-level click)
   const directPartIds = selArray.map(s => s.partId).filter(Boolean);
   if(directPartIds.length > 0){
-    console.log('[MFG v1.45] Direct partIds from event:', directPartIds);
+    console.log('[MFG v1.46] Direct partIds from event:', directPartIds);
     _applyResolvedIds(directPartIds);
     return;
   }
@@ -606,8 +623,8 @@ function resolveSelectionToParts(selArray){
   const entityIds = selArray.map(s => s.selectionId || s.entityId).filter(Boolean);
   const resolvedBodyIds = [...new Set(entityIds.map(id => faceToBodyId[id]).filter(Boolean))];
 
-  console.log('[MFG v1.45] selectionIds:', entityIds);
-  console.log('[MFG v1.45] -> bodyIds from face map:', resolvedBodyIds);
+  console.log('[MFG v1.46] selectionIds:', entityIds);
+  console.log('[MFG v1.46] -> bodyIds from face map:', resolvedBodyIds);
 
   if(resolvedBodyIds.length > 0){
     _applyResolvedIds(resolvedBodyIds);
@@ -615,7 +632,7 @@ function resolveSelectionToParts(selArray){
   }
 
   // Face map not loaded yet or face IDs not in map — trigger a map build and show banner
-  console.warn('[MFG v1.45] No face map match — map loaded?', faceMapLoaded, '| triggering rebuild');
+  console.warn('[MFG v1.46] No face map match — map loaded?', faceMapLoaded, '| triggering rebuild');
   buildFaceMap().then(() => {
     const retried = [...new Set(entityIds.map(id => faceToBodyId[id]).filter(Boolean))];
     if(retried.length > 0){
@@ -637,7 +654,7 @@ function _applyResolvedIds(ids){
   document.getElementById('sel-banner-text').textContent =
     `${n} part${n!==1?'s':''} selected — tap Use Selection`;
   document.getElementById('selection-banner').classList.add('visible');
-  console.log('[MFG v1.45] studioSelectedIds:', JSON.stringify(studioSelectedIds));
+  console.log('[MFG v1.46] studioSelectedIds:', JSON.stringify(studioSelectedIds));
 }
   // Intentionally do NOT clear studioSelectedIds or hide banner on empty selection —
   // OnShape fires Array(0) events on mouse-move which would wipe the selection
@@ -668,8 +685,8 @@ function useStudioSelection(){
 }
 function autoSelectFromStudio(){
   clearSelection();
-  console.log('[MFG v1.45] Matching studioSelectedIds:', JSON.stringify(studioSelectedIds));
-  console.log('[MFG v1.45] Available part IDs:', JSON.stringify(parts.map(p=>p.id)));
+  console.log('[MFG v1.46] Matching studioSelectedIds:', JSON.stringify(studioSelectedIds));
+  console.log('[MFG v1.46] Available part IDs:', JSON.stringify(parts.map(p=>p.id)));
 
   parts.forEach(p=>{
     const match =
@@ -692,7 +709,7 @@ function autoSelectFromStudio(){
     showToast(`${selected.size} part${selected.size!==1?'s':''} loaded from selection`);
   } else {
     // Last resort: if we stored raw entity IDs and nothing matched, show a helpful message
-    console.warn('[MFG v1.45] No match. studioSelectedIds were:', studioSelectedIds,
+    console.warn('[MFG v1.46] No match. studioSelectedIds were:', studioSelectedIds,
       '— these are face/edge entity IDs. OnShape does not expose a face->part mapping in the client API. ' +
       'Try clicking directly on the part body (not a face) or use the parts list on the left.');
     showToast('Select the part body (not a face/edge) — or pick from the list', true);
@@ -713,7 +730,7 @@ async function loadParts(){
   list.innerHTML='<div class="empty-state"><span class="spinner"></span> Loading parts...</div>';
   try{
     const data=await onshapeFetch(`/parts/d/${docId}/${wvmType}/${wvmId}/e/${elementId}`);
-    console.log('[MFG v1.45] Raw parts response sample:', JSON.stringify(data[0]));
+    console.log('[MFG v1.46] Raw parts response sample:', JSON.stringify(data[0]));
     renderParts(data.map(p=>({
       id:         p.partId,
       bodyId:     p.bodyId||'',
@@ -842,9 +859,9 @@ async function showPartForm(part,idx){
   const detectedFinish = matchFinishColor(part.appearance?.color, part.appearance?.isGenerated);
   if (detectedFinish) {
     pillState['finish'] = detectedFinish;
-    console.log(`[MFG v1.45] Auto-detected finish: ${detectedFinish}`, part.appearance?.color);
+    console.log(`[MFG v1.46] Auto-detected finish: ${detectedFinish}`, part.appearance?.color);
   } else {
-    console.log(`[MFG v1.45] No finish match — color:`, part.appearance?.color, `isGenerated:`, part.appearance?.isGenerated);
+    console.log(`[MFG v1.46] No finish match — color:`, part.appearance?.color, `isGenerated:`, part.appearance?.isGenerated);
   }
 
   // Auto-detect plate type + thickness from bounding box
