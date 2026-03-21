@@ -207,7 +207,10 @@ export default async function handler(req, res) {
         body: JSON.stringify({ list_id: LIST_ID, initial_fields: fields })
       });
       const data = await resp.json();
-      if (!data.ok) throw new Error('Slack Lists error: ' + (data.error || JSON.stringify(data)));
+      if (!data.ok) {
+        console.error("[addListItem] Slack error:", JSON.stringify(data));
+        throw new Error("Slack Lists error: " + (data.error || JSON.stringify(data)));
+      }
       return res.json({ ok: true, item_id: data.item?.id });
 
     } else if (action === 'getListSchema') {
