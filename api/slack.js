@@ -145,7 +145,7 @@ export default async function handler(req, res) {
 
       // --- Option IDs: Status (Select column) ---
       // Default new cards to "Needs CAM" status
-      const STATUS_NEEDS_CAM = 'OptQQ3P7WOD';
+      const STATUS_NEEDS_CAM = 'Opt0GUMMV0G';
 
       const p = payload;
 
