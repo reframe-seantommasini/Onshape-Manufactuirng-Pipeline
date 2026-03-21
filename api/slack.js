@@ -75,6 +75,141 @@ export default async function handler(req, res) {
       if (!data.ok) throw new Error(data.error);
       return res.json({ ok: true });
 
+    } else if (action === 'addListItem') {
+      // Add a manufacturing card row to the Slack List.
+      // Column IDs and option IDs discovered via getListSchema on 2026-03-21.
+      const LIST_ID = 'F09T4DXL3L5';
+
+      // --- Column IDs ---
+      const COL_NAME        = 'Col09SSDZMJHM'; // rich_text  — Part name
+      const COL_PROJECT     = 'Col09SSDZTDST'; // select     — Project
+      const COL_MACHINE     = 'Col09T1FJ289Z'; // select     — Machine Type
+      const COL_PART_TYPE   = 'Col09T1FJ4P99'; // select     — Part Type
+      const COL_QTY         = 'Col09T4DXS9E1'; // number     — Quantity
+      const COL_CAD_LINK    = 'Col09T5RRT1FY'; // rich_text  — Link to CAD
+      const COL_ASSIGNEE    = 'Col09T7T75G9Y'; // user       — Assignee
+      const COL_MATERIAL    = 'Col09T7T790N6'; // select     — Material & Thickness
+      const COL_FINISH      = 'Col09TBEF46N8'; // select     — Finish
+      const COL_STATUS      = 'Col09U26V5LE4'; // select     — Select (status)
+      const COL_ATTACHMENT  = 'Col09U26V8Q48'; // attachment — Drawing/Part File
+      const COL_NOTES       = 'Col09TLQC8G9F'; // rich_text  — Details or Notes
+      // COL_SUBMITTED_BY (Col09T5RRMVK8) and COL_DATE_SUBMITTED (Col09TBEF0E04) are auto-filled
+
+      // --- Option IDs: Project ---
+      const PROJECT_OPTS = {
+        'Dev Bot':          'Opt7L5A1DYV', // using Comp Bot ID as placeholder — see note
+        'Prototype':        'Opt8FGSDRSA',
+        'Comp Bot':         'Opt7L5A1DYV',
+        'Spare':            'OptY8K9J0UX',
+        'Off-Season':       'OptZ7BKNFZV',
+        'Kitbot':           'OptP6FO92CK',
+        // 'Shop Improvement', 'Robot Cart', '2020 Turret' — IDs not yet observed in data
+      };
+
+      // --- Option IDs: Machine Type ---
+      const MACHINE_OPTS = {
+        'CNC Router':  'OptVU1N66GK',
+        'Lathe':       'OptWWAG8QCN',
+        'CNC Mill':    'OptCYALA6IJ',
+        'Mill':        'OptL1IZAYBZ',
+        '3D Printer':  'OptVYDGOJV7',
+        'Chop Saw':    'OptAT903MBL',
+        // 'Laser' ID not yet observed
+      };
+
+      // --- Option IDs: Part Type ---
+      const PART_TYPE_OPTS = {
+        'Plate':        'OptVTTRUKMD', // "Sheet/Plate" in list
+        'Hex Shaft':    'Opt9YD9VBQQ', // confirm — "Cylindrical Shaft" may be this
+        'Round Shaft':  'Opt9YD9VBQQ', // same column option, confirm
+        'Tube 1x1in':   'Opt5POFQV4D',
+        'Billet':       'OptZ0BEJFZJ',
+        // Tube 1x2, 2x2, 3x1, 0.5x1 — IDs not yet observed
+      };
+
+      // --- Option IDs: Material & Thickness ---
+      const MATERIAL_OPTS = {
+        'Aluminum':  'OptMG7575FE',
+        'Steel':     'OptYCP8F9MG',
+        'SRPP':      'OptOMIMONEM',
+        // Polycarb, PLA+, Nylon CF, Nylon GF, thicknesses — IDs not yet observed
+      };
+
+      // --- Option IDs: Finish ---
+      const FINISH_OPTS = {
+        'None':   'OptTX86VLIY',
+        'Black':  'OptXSUN6AGU',
+        'Blue':   'OptHTBDGBXM',
+        // Yellow, Pink — IDs not yet observed
+      };
+
+      // --- Option IDs: Status (Select column) ---
+      // Default new cards to "Needs CAM" status
+      const STATUS_NEEDS_CAM = 'OptQQ3P7WOD';
+
+      const p = payload;
+
+      // Helper: build a rich_text field value
+      const richText = (text) => ([{
+        type: 'rich_text',
+        elements: [{ type: 'rich_text_section', elements: [{ type: 'text', text }] }]
+      }]);
+
+      // Helper: build a rich_text link field value
+      const richLink = (url, text) => ([{
+        type: 'rich_text',
+        elements: [{ type: 'rich_text_section', elements: [{ type: 'link', url, text }] }]
+      }]);
+
+      const fields = [];
+
+      // Name (required)
+      fields.push({ column_id: COL_NAME, rich_text: richText(p.name || 'Unnamed Part') });
+
+      // Project
+      const projectId = PROJECT_OPTS[p.project];
+      if (projectId) fields.push({ column_id: COL_PROJECT, select: [projectId] });
+
+      // Machine Type
+      const machineId = MACHINE_OPTS[p.machine];
+      if (machineId) fields.push({ column_id: COL_MACHINE, select: [machineId] });
+
+      // Part Type
+      const partTypeId = PART_TYPE_OPTS[p.partType];
+      if (partTypeId) fields.push({ column_id: COL_PART_TYPE, select: [partTypeId] });
+
+      // Quantity
+      if (p.qty) fields.push({ column_id: COL_QTY, number: [parseInt(p.qty, 10)] });
+
+      // CAD Link
+      if (p.cadLink) fields.push({ column_id: COL_CAD_LINK, rich_text: richLink(p.cadLink, p.name || p.cadLink) });
+
+      // Material & Thickness
+      const materialId = MATERIAL_OPTS[p.material];
+      if (materialId) fields.push({ column_id: COL_MATERIAL, select: [materialId] });
+
+      // Finish
+      const finishId = FINISH_OPTS[p.finish] || FINISH_OPTS['None'];
+      fields.push({ column_id: COL_FINISH, select: [finishId] });
+
+      // Status — default to Needs CAM for new submissions
+      fields.push({ column_id: COL_STATUS, select: [STATUS_NEEDS_CAM] });
+
+      // Notes
+      if (p.notes) fields.push({ column_id: COL_NOTES, rich_text: richText(p.notes) });
+
+      // Attachment (STEP file ID from completeUpload)
+      if (p.fileId) fields.push({ column_id: COL_ATTACHMENT, attachment: [p.fileId] });
+
+      const resp = await fetch('https://slack.com/api/slackLists.items.create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + slackToken },
+        body: JSON.stringify({ list_id: LIST_ID, initial_fields: fields })
+      });
+      const data = await resp.json();
+      if (!data.ok) throw new Error('Slack Lists error: ' + (data.error || JSON.stringify(data)));
+      return res.json({ ok: true, item_id: data.item?.id });
+
     } else if (action === 'getListSchema') {
       // Temporary helper — fetches existing items to discover column_id + select option IDs.
       // Remove this action once column mapping is wired up.
