@@ -1,94 +1,52 @@
-// Vercel serverless function — proxies all Slack API calls server-side.
-// Slack token never touches the browser or the public repo.
+// Vercel serverless function — proxies OnShape API calls server-side to avoid CORS.
+// All GET requests: /api/onshape?path=/partstudios/d/.../bodydetails  → transparent proxy
+// POST requests:    /api/onshape?path=/partstudios/d/.../translations  → transparent proxy
+//
+// Key endpoint used for face->part resolution:
+//   GET /partstudios/d/{did}/{wvm}/{wvmid}/e/{eid}/bodydetails
+//   Returns every body with its face IDs. Face IDs match the selectionId values
+//   that OnShape sends in SELECTION postMessages, giving us the face->body bridge.
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const slackToken   = process.env.SLACK_TOKEN;
-  const slackChannel = process.env.SLACK_CHANNEL;
-  if (!slackToken || !slackChannel) {
-    return res.status(500).json({ error: 'Slack credentials not configured on server' });
+  const method = req.method;
+  if (method !== 'GET' && method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { action, payload } = req.body;
+  const osKey    = process.env.ONSHAPE_ACCESS_KEY;
+  const osSecret = process.env.ONSHAPE_SECRET_KEY;
+  if (!osKey || !osSecret) {
+    return res.status(500).json({ error: 'OnShape credentials not configured on server' });
+  }
+
+  const { path } = req.query;
+  if (!path) return res.status(400).json({ error: 'Missing path param' });
+
+  const upstreamUrl = `https://cad.onshape.com/api/v6${path}`;
+  const headers = {
+    'Authorization': 'Basic ' + Buffer.from(`${osKey}:${osSecret}`).toString('base64'),
+    'Accept':        'application/json',
+    'Content-Type':  'application/json',
+  };
 
   try {
-    if (action === 'postMessage') {
-      // Post the manufacturing card to Slack
-      const p = payload;
-      const fields = [
-        ['Project', p.project],
-        ['Status', p.status||'Not set'],
-        ['Machine', p.machine||'TBD'], ['Material', p.material||'TBD'],
-        ['Thickness', p.thickness||'TBD'], ['Type of Part', p.partType||'TBD'],
-        ['Quantity', p.qty], ['Finish', p.finish||'None'],
-        ['Assigned To', p.student||'Unassigned'],
-        ['CAD Link', p.cadLink ? `<${p.cadLink}|Open in OnShape>` : 'N/A'],
-        ['Part File', p.fileName||'None attached']
-      ];
-      const body = {
-        channel: slackChannel,
-        text: `🔧 NEW MANUFACTURING CARD: ${p.name}`,
-        blocks: [
-          { type:'header', text:{ type:'plain_text', text:`🔧 ${p.name}`, emoji:true } },
-          { type:'section', fields: fields.slice(0,8).map(([k,v])=>({ type:'mrkdwn', text:`*${k}*\n${v}` })) },
-          { type:'section', fields: fields.slice(8).map(([k,v])=>({ type:'mrkdwn', text:`*${k}*\n${v}` })) },
-          ...(p.notes ? [{ type:'section', text:{ type:'mrkdwn', text:`*Notes*\n${p.notes}` } }] : []),
-          { type:'divider' }
-        ]
-      };
-      const resp = await fetch('https://slack.com/api/chat.postMessage', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+slackToken },
-        body: JSON.stringify(body)
-      });
-      const data = await resp.json();
-      if (!data.ok) throw new Error(data.error || 'Slack error');
-      return res.json({ ok: true });
+    const body = method === 'POST' ? JSON.stringify(req.body) : undefined;
+    const upstream = await fetch(upstreamUrl, { method, headers, body });
 
-    } else if (action === 'getUploadURL') {
-      // Step A of file upload: get upload URL
-      const resp = await fetch('https://slack.com/api/files.getUploadURLExternal', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+slackToken },
-        body: JSON.stringify({ filename: payload.filename, length: payload.length })
-      });
-      const data = await resp.json();
-      if (!data.ok) throw new Error(data.error);
-      return res.json({ ok: true, upload_url: data.upload_url, file_id: data.file_id });
+    const contentType = upstream.headers.get('content-type') || 'application/json';
+    res.setHeader('Content-Type', contentType);
+    res.status(upstream.status);
 
-    } else if (action === 'completeUpload') {
-      // Step C of file upload: complete and share to channel
-      const resp = await fetch('https://slack.com/api/files.completeUploadExternal', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+slackToken },
-        body: JSON.stringify({
-          files: [{ id: payload.file_id, title: payload.title }],
-          channel_id: slackChannel
-        })
-      });
-      const data = await resp.json();
-      if (!data.ok) throw new Error(data.error);
-      return res.json({ ok: true });
-
-    } else if (action === 'getListSchema') {
-      // Temporary helper — fetches existing items to discover column_id + select option IDs.
-      // Remove this action once column mapping is wired up.
-      const listId = process.env.SLACK_LIST_ID || 'F09T4DXL3L5';
-      const resp = await fetch('https://slack.com/api/slackLists.items.list', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + slackToken },
-        body: JSON.stringify({ list_id: listId, limit: 5 })
-      });
-      const data = await resp.json();
-      return res.json(data);
-
+    if (contentType.includes('application/json')) {
+      return res.json(await upstream.json());
     } else {
-      return res.status(400).json({ error: 'Unknown action: ' + action });
+      // Binary passthrough for STEP file downloads
+      return res.send(Buffer.from(await upstream.arrayBuffer()));
     }
   } catch (err) {
     return res.status(500).json({ error: err.message });
