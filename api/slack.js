@@ -82,7 +82,7 @@ export default async function handler(req, res) {
       const resp = await fetch('https://slack.com/api/slackLists.items.list', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + slackToken },
-        body: JSON.stringify({ list_id: listId, limit: 5 })
+        body: JSON.stringify({ list_id: listId, limit: payload?.limit || 50 })
       });
       const data = await resp.json();
       return res.json(data);
