@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Board — FRC 6328</title>
+<title>Manufacturing Board — FRC 6328 v1.81</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -19,8 +19,7 @@ body{font-family:'Barlow',sans-serif;background:var(--navy-deep);color:var(--tex
 
 /* AUTH */
 #auth-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:32px;background:radial-gradient(ellipse at 50% 0%,#1a3070 0%,var(--navy-deep) 65%);}
-.auth-num{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:5rem;color:var(--gold);letter-spacing:-.02em;line-height:1;text-shadow:0 0 60px rgba(239,171,40,0.4);}
-.auth-team{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:.85rem;color:var(--muted);letter-spacing:.22em;text-transform:uppercase;display:block;text-align:center;margin-top:4px;}
+.auth-logo{display:block;width:220px;height:auto;border-radius:8px;box-shadow:0 0 60px rgba(239,171,40,0.2);}
 .auth-card{background:var(--card-bg);border:1px solid var(--border);border-radius:14px;padding:28px 32px;display:flex;flex-direction:column;align-items:center;gap:16px;min-width:320px;box-shadow:0 0 0 1px rgba(239,171,40,0.08),0 24px 48px rgba(0,0,0,0.4);}
 .auth-card-title{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.1rem;letter-spacing:.1em;text-transform:uppercase;color:var(--cream);border-top:1px solid var(--border);padding-top:16px;text-align:center;width:100%;}
 .auth-card p{font-size:.8rem;color:var(--muted);text-align:center;line-height:1.5;}
@@ -34,9 +33,8 @@ body{font-family:'Barlow',sans-serif;background:var(--navy-deep);color:var(--tex
 /* APP */
 #app{display:none;flex-direction:column;height:100vh;overflow:hidden;}
 header{background:var(--blue-dk);border-bottom:3px solid var(--gold);padding:10px 20px;display:flex;align-items:center;gap:14px;flex-shrink:0;box-shadow:0 4px 20px rgba(0,0,0,0.4);}
-.hdr-logo{display:flex;flex-direction:column;line-height:1;}
-.hdr-num{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.3rem;color:var(--gold);letter-spacing:.04em;}
-.hdr-sub{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:.58rem;color:var(--cream);letter-spacing:.2em;text-transform:uppercase;opacity:.65;}
+.hdr-logo{display:flex;align-items:center;}
+.hdr-logo svg{height:38px;width:auto;display:block;border-radius:4px;}
 .hdr-divider{width:1px;height:34px;background:var(--border);}
 .hdr-title{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.15rem;color:var(--cream);letter-spacing:.1em;text-transform:uppercase;}
 .hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
@@ -47,6 +45,12 @@ header{background:var(--blue-dk);border-bottom:3px solid var(--gold);padding:10p
 .btn-signout{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;transition:all .15s;}
 .btn-signout:hover{color:var(--cream);border-color:var(--muted);}
 
+/* VIEW TOGGLE */
+.view-toggle{display:flex;background:var(--navy);border:1px solid var(--border);border-radius:6px;overflow:hidden;}
+.view-toggle-btn{font-family:'Barlow Condensed',sans-serif;font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:transparent;color:var(--muted);border:none;padding:5px 11px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px;}
+.view-toggle-btn:hover{color:var(--cream);}
+.view-toggle-btn.active{background:var(--blue-md);color:var(--cream);}
+
 /* Filter bar */
 .filter-bar{background:var(--navy);border-bottom:1px solid var(--border);padding:8px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap;}
 .filter-bar label{font-family:'Barlow Condensed',sans-serif;font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
@@ -54,13 +58,11 @@ header{background:var(--blue-dk);border-bottom:3px solid var(--gold);padding:10p
 .filter-select:focus{outline:none;border-color:var(--gold);}
 .filter-count{margin-left:auto;font-size:.72rem;color:var(--muted);}
 
-/* Board */
-#board{flex:1;overflow-x:auto;overflow-y:hidden;display:flex;gap:10px;padding:16px 20px;align-items:flex-start;}
-#board::-webkit-scrollbar{height:5px;}
-#board::-webkit-scrollbar-track{background:transparent;}
-#board::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
-
-/* Column */
+/* ── KANBAN ────────────────────────────────────────── */
+#board-kanban{flex:1;overflow-x:auto;overflow-y:hidden;display:flex;gap:10px;padding:16px 20px;align-items:flex-start;}
+#board-kanban::-webkit-scrollbar{height:5px;}
+#board-kanban::-webkit-scrollbar-track{background:transparent;}
+#board-kanban::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
 .col{flex-shrink:0;width:230px;display:flex;flex-direction:column;gap:8px;}
 .col-head{display:flex;align-items:center;gap:7px;background:var(--col-bg);border:1px solid var(--border);border-radius:8px;padding:7px 10px;}
 .col-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
@@ -68,8 +70,6 @@ header{background:var(--blue-dk);border-bottom:3px solid var(--gold);padding:10p
 .col-count{font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;color:var(--muted);background:var(--navy);padding:1px 6px;border-radius:99px;border:1px solid var(--border);}
 .col-cards{display:flex;flex-direction:column;gap:7px;min-height:48px;border-radius:8px;padding:3px;transition:background .15s;}
 .col-cards.drag-over{background:rgba(68,108,227,0.1);outline:1px dashed rgba(68,108,227,0.4);outline-offset:-3px;}
-
-/* Card */
 .card{background:var(--card-bg);border:1px solid var(--border);border-radius:9px;padding:10px 11px;cursor:grab;position:relative;transition:border-color .15s,box-shadow .15s,transform .1s;}
 .card:hover{border-color:rgba(68,108,227,0.7);box-shadow:0 4px 14px rgba(0,0,0,0.35);}
 .card.dragging{opacity:.35;cursor:grabbing;transform:rotate(1deg) scale(.97);}
@@ -93,6 +93,64 @@ header{background:var(--blue-dk);border-bottom:3px solid var(--gold);padding:10p
 .card-cad a{font-size:.68rem;color:var(--gold);text-decoration:none;}
 .card-cad a:hover{text-decoration:underline;}
 .col-empty{font-size:.7rem;color:var(--muted);text-align:center;padding:16px 8px;border:1px dashed rgba(47,78,148,.4);border-radius:7px;opacity:.6;}
+.card-step{margin-top:6px;padding-top:6px;border-top:1px solid var(--border);}
+.btn-step{font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:rgba(52,211,153,.1);color:#34d399;border:1px solid rgba(52,211,153,.25);border-radius:5px;padding:3px 9px;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px;}
+.btn-step:hover{background:rgba(52,211,153,.2);border-color:rgba(52,211,153,.5);}
+.btn-step:disabled{opacity:.5;cursor:not-allowed;}
+
+/* ── LIST VIEW ─────────────────────────────────────── */
+#board-list{flex:1;overflow-y:auto;overflow-x:hidden;display:none;flex-direction:column;gap:0;padding:16px 20px;}
+.list-table-wrap{overflow-x:auto;}
+.list-table-wrap::-webkit-scrollbar{height:4px;}
+.list-table-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+#board-list::-webkit-scrollbar{width:5px;}
+#board-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+.list-group{margin-bottom:12px;border-radius:10px;overflow:hidden;border:1px solid var(--border);}
+.list-group-header{display:flex;align-items:center;gap:10px;background:var(--col-bg);padding:9px 14px;cursor:pointer;user-select:none;}
+.list-group-header:hover{background:#0f1e44;}
+.list-group-chevron{font-size:.7rem;color:var(--muted);transition:transform .2s;flex-shrink:0;}
+.list-group-chevron.collapsed{transform:rotate(-90deg);}
+.list-group-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.list-group-name{font-family:'Barlow Condensed',sans-serif;font-size:.8rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--cream);flex:1;}
+.list-group-count{font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;color:var(--muted);background:var(--navy);padding:1px 8px;border-radius:99px;border:1px solid var(--border);}
+
+.list-table{width:100%;border-collapse:collapse;}
+.list-table th{font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:7px 14px;text-align:left;border-bottom:1px solid var(--border);background:rgba(13,26,54,0.6);white-space:nowrap;}
+.list-table th.sortable{cursor:pointer;}
+.list-table th.sortable:hover{color:var(--cream);}
+.list-table th .sort-arrow{margin-left:4px;opacity:.4;font-size:.6rem;}
+.list-table th.sort-asc .sort-arrow::after{content:'▲';opacity:1;}
+.list-table th.sort-desc .sort-arrow::after{content:'▼';opacity:1;}
+.list-table td{padding:8px 14px;border-bottom:1px solid rgba(47,78,148,0.25);vertical-align:middle;font-size:.8rem;color:var(--text);}
+.list-table tr:last-child td{border-bottom:none;}
+.list-table tr:hover td{background:rgba(68,108,227,0.06);cursor:pointer;}
+.list-table tr.list-row-empty td{color:var(--muted);font-style:italic;text-align:center;padding:16px;}
+
+.lt-name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.88rem;color:var(--cream);letter-spacing:.02em;}
+.lt-name-sub{font-size:.68rem;color:var(--muted);margin-top:1px;}
+.lt-badge{font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:99px;border:1px solid;white-space:nowrap;display:inline-block;}
+.lt-badge-machine{background:rgba(68,108,227,.12);color:#7fa8f5;border-color:rgba(68,108,227,.3);}
+.lt-badge-project{background:rgba(239,171,40,.1);color:var(--gold);border-color:rgba(239,171,40,.25);}
+.lt-badge-finish{background:rgba(192,132,252,.1);color:#c084fc;border-color:rgba(192,132,252,.2);}
+.lt-badge-parttype{background:rgba(52,211,153,.08);color:#34d399;border-color:rgba(52,211,153,.2);}
+.lt-cad a{font-size:.68rem;color:var(--gold);text-decoration:none;}
+.lt-cad a:hover{text-decoration:underline;}
+.lt-notes{font-size:.68rem;color:var(--muted);font-style:italic;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lt-mat{display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+.lt-mat-name{font-size:.78rem;color:var(--text);}
+.lt-mat-thick{font-family:'Barlow Condensed',sans-serif;font-size:.72rem;font-weight:700;color:var(--muted);background:var(--navy);padding:1px 6px;border-radius:4px;border:1px solid var(--border);}
+.lt-date{font-size:.72rem;color:var(--muted);white-space:nowrap;}
+.lt-qty{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.82rem;color:var(--text);}
+.lt-assignee{font-size:.75rem;color:var(--muted);}
+.lt-actions{display:flex;gap:4px;opacity:0;transition:opacity .1s;}
+tr:hover .lt-actions{opacity:1;}
+.lt-btn{width:22px;height:22px;border-radius:5px;border:1px solid var(--border);background:var(--navy);color:var(--muted);font-size:.75rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .1s;padding:0;}
+.lt-btn:hover{color:var(--cream);border-color:var(--muted);}
+.lt-btn-del:hover{color:var(--danger);border-color:var(--danger);}
+.lt-step-btn{font-family:'Barlow Condensed',sans-serif;font-size:.62rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;background:rgba(52,211,153,.08);color:#34d399;border:1px solid rgba(52,211,153,.2);border-radius:4px;padding:2px 7px;cursor:pointer;white-space:nowrap;}
+.lt-step-btn:hover{background:rgba(52,211,153,.18);}
+.lt-step-btn:disabled{opacity:.4;cursor:not-allowed;}
 
 /* Modal */
 .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:50;padding:20px;}
@@ -118,19 +176,6 @@ header{background:var(--blue-dk);border-bottom:3px solid var(--gold);padding:10p
 .btn-delete{font-family:'Barlow Condensed',sans-serif;font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:transparent;color:var(--danger);border:1px solid rgba(224,82,82,.3);border-radius:6px;padding:7px 14px;cursor:pointer;transition:all .15s;margin-right:auto;}
 .btn-delete:hover{background:rgba(224,82,82,.1);}
 
-/* STEP download */
-.card-step{margin-top:6px;padding-top:6px;border-top:1px solid var(--border);}
-.btn-step{
-  font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;
-  letter-spacing:.08em;text-transform:uppercase;
-  background:rgba(52,211,153,.1);color:#34d399;
-  border:1px solid rgba(52,211,153,.25);border-radius:5px;
-  padding:3px 9px;cursor:pointer;transition:all .15s;
-  display:inline-flex;align-items:center;gap:5px;
-}
-.btn-step:hover{background:rgba(52,211,153,.2);border-color:rgba(52,211,153,.5);}
-.btn-step:disabled{opacity:.5;cursor:not-allowed;}
-
 #loading{position:fixed;inset:0;background:rgba(8,15,36,.8);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:90;}
 #loading.show{display:flex;}
 .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;}
@@ -144,10 +189,30 @@ header{background:var(--blue-dk);border-bottom:3px solid var(--gold);padding:10p
 
 <!-- AUTH -->
 <div id="auth-screen">
-  <div>
-    <div class="auth-num">6328</div>
-    <span class="auth-team">Mechanical Advantage</span>
-  </div>
+  <svg class="auth-logo" viewBox="0 0 793.70135 524.89203" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath clipPathUnits="userSpaceOnUse" id="lcp3"><path d="M 0,393.669 H 595.276 V 0 H 0 Z" transform="translate(-122.21241,-213.92841)"/></clipPath>
+    <clipPath clipPathUnits="userSpaceOnUse" id="lcp5"><path d="M 0,393.669 H 595.276 V 0 H 0 Z" transform="translate(-230.67571,-206.29021)"/></clipPath>
+    <clipPath clipPathUnits="userSpaceOnUse" id="lcp7"><path d="M 0,393.669 H 595.276 V 0 H 0 Z" transform="translate(-348.30501,-206.12041)"/></clipPath>
+    <clipPath clipPathUnits="userSpaceOnUse" id="lcp9"><path d="M 0,393.669 H 595.276 V 0 H 0 Z" transform="translate(-418.66181,-188.12811)"/></clipPath>
+    <clipPath clipPathUnits="userSpaceOnUse" id="lcp11"><path d="M 0,393.669 H 595.276 V 0 H 0 Z" transform="translate(-387.38581,-263.39901)"/></clipPath>
+    <clipPath clipPathUnits="userSpaceOnUse" id="lcp13"><path d="M 0,393.669 H 595.276 V 0 H 0 Z" transform="translate(-454.14841,-148.7599)"/></clipPath>
+    <clipPath clipPathUnits="userSpaceOnUse" id="lcp15"><path d="M 0,393.669 H 595.276 V 0 H 0 Z" transform="translate(-246.6142,-106.0761)"/></clipPath>
+    <clipPath clipPathUnits="userSpaceOnUse" id="lcp17"><path d="M 0,393.669 H 595.276 V 0 H 0 Z" transform="translate(-144.3369,-244.79701)"/></clipPath>
+    <clipPath clipPathUnits="userSpaceOnUse" id="lcp21"><path d="M 0,393.669 H 595.276 V 0 H 0 Z" transform="translate(-224.22051,-83.399005)"/></clipPath>
+    <clipPath clipPathUnits="userSpaceOnUse" id="lcp23"><path d="M 0,393.669 H 595.276 V 0 H 0 Z" transform="translate(-508.02181,-216.21661)"/></clipPath>
+  </defs>
+  <path d="M 0,0 C 0.113,16.069 7.582,24.471 22.406,25.206 H 76.383 L 67.471,6.959 H 27.328 C 23.141,6.337 21.076,3.734 21.133,-0.849 v -6.535 h 32.759 c 14.824,-0.792 22.293,-9.222 22.406,-25.291 v -3.649 C 76.185,-51.544 68.66,-59.296 53.722,-59.578 H 22.49 c -14.937,0.282 -22.462,8.034 -22.575,23.254 z m 31.487,-25.715 -10.439,15.87 v -23.678 c 0,-4.979 2.319,-7.724 6.959,-8.233 h 20.199 c 4.639,0.509 6.959,3.254 6.959,8.233 0.057,4.582 -2.008,7.185 -6.195,7.808 z" fill="#ffffff" transform="matrix(1.3333333,0,0,-1.3333333,162.94987,239.65413)" clip-path="url(#lcp3)"/>
+  <path d="m 0,0 h 27.922 c 5.715,0 8.544,2.348 8.487,7.044 0,4.753 -2.857,7.129 -8.572,7.129 H -19.859 V 32.929 H 31.062 C 40.285,32.76 46.989,30.553 51.176,26.31 55.42,22.123 57.485,16.154 57.372,8.402 57.259,0.651 53.072,-4.866 44.811,-8.147 c 8.034,-3.622 12.391,-9.817 13.07,-18.587 v -5.177 C 57.315,-43.17 50.667,-49.875 37.937,-52.025 h -57.796 l 9.335,18.671 h 38.022 c 5.035,0 7.525,2.518 7.468,7.554 0,5.035 -2.489,7.553 -7.468,7.553 H 11.627 Z" fill="#ffffff" transform="matrix(1.3333333,0,0,-1.3333333,307.5676,249.8384)" clip-path="url(#lcp5)"/>
+  <path d="m 0,0 c 4.639,0.509 6.959,2.829 6.959,6.959 0.057,4.583 -2.008,7.186 -6.195,7.808 H -48.291 V 33.014 H 5.686 C 20.51,31.147 27.979,22.745 28.092,7.808 V 5.432 C 27.979,-7.582 20.454,-15.333 5.517,-17.823 h -24.188 c -5.885,0.057 -8.827,-5.148 -8.827,-15.616 H 28.177 L 18.756,-51.77 h -67.132 v 23.933 c 0.17,16.804 7.752,26.083 22.745,27.837 z" fill="#ffffff" transform="matrix(1.3333333,0,0,-1.3333333,464.40667,250.0648)" clip-path="url(#lcp7)"/>
+  <path d="m 0,0 c -4.979,0 -7.497,-2.518 -7.553,-7.553 0,-5.036 2.517,-7.554 7.553,-7.554 h 24.103 c 5.036,0 7.525,2.518 7.469,7.554 0,5.035 -2.49,7.553 -7.469,7.553 z m -10.439,-33.778 c -12.73,2.15 -19.379,8.855 -19.944,20.114 v 5.177 c 0.679,8.77 5.035,14.965 13.07,18.586 -8.261,3.282 -12.448,8.799 -12.561,16.55 -0.113,7.751 1.924,13.721 6.11,17.908 4.244,4.243 10.977,6.45 20.199,6.619 H 27.667 C 36.89,51.007 43.595,48.8 47.782,44.557 52.025,40.37 54.09,34.4 53.977,26.649 53.864,18.898 49.677,13.381 41.416,10.099 49.451,6.478 53.807,0.283 54.486,-8.487 v -5.177 C 53.92,-24.923 47.272,-31.628 34.542,-33.778 Z m 34.966,52.025 c 5.715,0 8.544,2.348 8.487,7.044 0,4.753 -2.857,7.129 -8.572,7.129 H -0.339 c -5.715,0 -8.601,-2.376 -8.657,-7.129 0,-4.696 2.857,-7.044 8.572,-7.044 z" fill="#ffffff" transform="matrix(1.3333333,0,0,-1.3333333,558.21573,274.05453)" clip-path="url(#lcp9)"/>
+  <path d="m 0,0 c 17.429,0 33.283,-6.707 45.154,-17.665 0.526,-0.485 1.209,-0.761 1.925,-0.761 h 11.969 c 3.004,-0.055 5.801,-0.315 8.388,-0.778 2.691,-0.481 4.434,2.724 2.571,4.725 C 56.037,0.528 36.12,9.921 14,9.921 3.411,9.921 -6.673,7.768 -15.841,3.876 -18.999,2.536 -17.555,-2.251 -14.203,-1.521 -9.627,-0.525 -4.875,0 0,0" fill="#162f65" transform="matrix(1.3333333,0,0,-1.3333333,516.5144,173.69333)" clip-path="url(#lcp11)"/>
+  <path d="m 0,0 -0.469,-0.079 h -0.475 -18.649 c -0.717,0 -1.402,-0.278 -1.928,-0.765 -11.881,-11.005 -27.769,-17.745 -45.242,-17.745 -4.842,0 -9.562,0.518 -14.109,1.5 -3.365,0.728 -4.814,-4.073 -1.644,-5.414 9.145,-3.868 19.198,-6.007 29.753,-6.007 21.808,0 41.483,9.123 55.423,23.758 C 4.564,-2.753 2.821,0.482 0.099,0.017 0.066,0.011 0.033,0.006 0,0" fill="#162f65" transform="matrix(1.3333333,0,0,-1.3333333,605.5312,326.54547)" clip-path="url(#lcp13)"/>
+  <path d="m 0,0 c -31.87,0 -59.897,16.44 -76.075,41.298 -0.527,0.81 -1.418,1.307 -2.385,1.307 l -23.559,0.001 c -3.175,0.06 -6.099,0.429 -8.765,1.097 -2.441,0.611 -4.407,-1.964 -3.177,-4.16 17.946,-32.05 52.224,-53.716 91.567,-53.716 14.196,0 27.732,2.821 40.079,7.933 4.332,1.794 2.414,8.35 -2.207,7.556 C 10.448,0.451 5.277,0 0,0" fill="#efab28" transform="matrix(1.3333333,0,0,-1.3333333,328.81893,383.4572)" clip-path="url(#lcp15)"/>
+  <path d="m 0,0 0.141,0.007 h 23.624 c 0.966,0 1.857,0.497 2.383,1.308 16.17,24.905 44.223,41.381 76.129,41.381 5.232,0 10.359,-0.442 15.348,-1.293 4.694,-0.8 6.531,5.808 2.127,7.62 -12.29,5.057 -25.753,7.847 -39.868,7.847 -39.537,0 -73.96,-21.878 -91.833,-54.186 -1.235,-2.233 0.851,-4.793 3.3,-4.076 C -6.018,-0.623 -3.132,-0.155 0,0" fill="#efab28" transform="matrix(1.3333333,0,0,-1.3333333,192.4492,198.496)" clip-path="url(#lcp17)"/>
+  <path d="m 0,0 c -62.621,0 -113.386,50.765 -113.386,113.386 0,62.621 50.765,113.386 113.386,113.386 2.851,0 5.677,-0.108 8.475,-0.316 1.802,-0.134 3.264,1.429 3.007,3.217 -0.206,1.43 -0.737,5.125 -1.18,8.212 l -3.906,27.187 c -0.443,3.087 -3.338,5.924 -6.432,6.306 0,0 -9.782,1.208 -15.838,1.208 -8.253,0 -15.853,-1.094 -15.853,-1.094 -3.086,-0.445 -5.974,-3.333 -6.417,-6.42 l -3.906,-27.187 c -0.443,-3.087 -3.236,-6.39 -6.205,-7.341 l -27.536,-11.385 c -2.766,-1.439 -7.071,-1.088 -9.567,0.781 l -21.992,16.467 c -2.496,1.869 -6.581,1.87 -9.077,10e-4 0,0 -6.148,-4.6 -11.984,-10.436 -4.282,-4.282 -10.345,-12.053 -10.345,-12.053 -1.918,-2.458 -1.958,-6.512 -0.089,-9.008 l 16.456,-21.978 c 1.869,-2.496 2.22,-6.8 0.779,-9.566 l -11.41,-27.557 c -0.952,-2.969 -4.257,-5.761 -7.343,-6.204 l -27.148,-3.9 c -3.086,-0.443 -5.975,-3.331 -6.419,-6.417 0,0 -1.095,-7.6 -1.095,-15.853 0,-6.057 1.208,-15.838 1.208,-15.838 0.382,-3.095 3.22,-5.989 6.306,-6.433 l 27.125,-3.896 c 3.087,-0.444 6.389,-3.236 7.339,-6.206 l 11.406,-27.603 c 1.439,-2.766 1.087,-7.071 -0.782,-9.567 L -138.845,21.96 c -1.869,-2.496 -1.87,-6.581 -0.002,-9.078 0,0 4.6,-6.147 10.436,-11.983 4.283,-4.283 12.053,-10.345 12.053,-10.345 2.459,-1.919 6.512,-1.959 9.008,-0.09 l 21.919,16.413 c 2.496,1.869 6.801,2.219 9.566,0.779 L -48.24,-3.775 c 2.969,-0.951 5.761,-4.255 6.205,-7.341 l 3.891,-27.085 c 0.443,-3.086 3.331,-5.975 6.417,-6.42 0,0 7.6,-1.094 15.853,-1.094 6.055,0 15.832,1.207 15.832,1.207 3.095,0.382 5.99,3.22 6.434,6.306 l 2.339,16.257 c 0.444,3.087 1.157,8.048 1.585,11.026 0.427,2.978 0.778,5.415 0.778,5.415 0.001,0 0.171,1.174 0.377,2.61 C 11.728,-1.11 10.27,0.449 8.473,0.315 5.676,0.107 2.85,0 0,0" fill="#151d3b" transform="matrix(1.3333333,0,0,-1.3333333,298.96067,413.69333)" clip-path="url(#lcp21)"/>
+  <path d="m 0,0 c -3.086,0.443 -6.391,3.235 -7.343,6.205 l -7.439,17.987 c -1.441,2.766 -1.091,7.07 0.778,9.566 l 10.599,14.155 c 1.869,2.496 1.828,6.549 -0.09,9.008 0,0 -3.656,4.686 -6.86,7.89 -4.366,4.366 -7.821,6.951 -7.821,6.951 -2.497,1.868 -6.581,1.868 -9.077,-0.001 L -41.418,61.154 c -2.496,-1.869 -6.801,-2.22 -9.567,-0.781 l -17.971,7.422 c -2.97,0.951 -5.762,4.254 -6.206,7.341 l -2.515,17.51 c -0.444,3.087 -3.331,5.976 -6.418,6.42 0,0 -4.271,0.615 -10.445,0.615 -4.531,0 -10.43,-0.728 -10.43,-0.728 -3.095,-0.382 -5.99,-3.22 -6.433,-6.307 l -2.515,-17.51 c -0.444,-3.087 -0.876,-6.097 -0.961,-6.691 -0.256,-1.777 1.188,-3.328 2.98,-3.213 1.813,0.117 3.642,0.177 5.484,0.177 46.845,0 84.82,-37.975 84.82,-84.82 0,-46.845 -37.975,-84.82 -84.82,-84.82 -1.834,0 -3.654,0.059 -5.459,0.175 -1.8,0.115 -3.251,-1.444 -2.994,-3.229 0.084,-0.585 0.153,-1.064 0.153,-1.064 0.001,0 0.259,-1.79 0.573,-3.978 0.314,-2.188 0.935,-6.503 1.379,-9.589 l 1.363,-9.479 c 0.444,-3.087 3.34,-5.924 6.434,-6.306 0,0 5.896,-0.728 10.426,-0.728 6.174,0 10.445,0.615 10.445,0.615 3.087,0.444 5.974,3.333 6.418,6.42 l 2.504,17.433 c 0.444,3.087 3.236,6.39 6.205,7.341 l 18.038,7.456 c 2.766,1.44 7.07,1.09 9.566,-0.779 l 14.111,-10.566 c 2.496,-1.869 6.549,-1.828 9.008,0.09 0,0 4.686,3.656 7.89,6.86 4.366,4.366 6.951,7.821 6.951,7.821 1.868,2.497 1.868,6.581 -10e-4,9.077 l -10.574,14.121 c -1.869,2.496 -2.22,6.801 -0.781,9.567 l 7.438,18.022 c 0.95,2.969 4.252,5.762 7.339,6.205 l 17.463,2.509 c 3.087,0.444 5.925,3.338 6.307,6.433 0,0 0.728,5.899 0.728,10.43 0,6.174 -0.615,10.445 -0.615,10.445 -0.444,3.087 -3.333,5.975 -6.42,6.418 z" fill="#151d3b" transform="matrix(1.3333333,0,0,-1.3333333,677.3624,236.6032)" clip-path="url(#lcp23)"/>
+</svg>
   <div class="auth-card">
     <div class="auth-card-title">Manufacturing Pipeline</div>
     <p>Sign in with your @littletonrobotics.org account to access the board.</p>
@@ -167,13 +232,44 @@ header{background:var(--blue-dk);border-bottom:3px solid var(--gold);padding:10p
 <div id="app">
   <header>
     <div class="hdr-logo">
-      <span class="hdr-num">6328</span>
-      <span class="hdr-sub">Mechanical Advantage</span>
+      <svg viewBox="0 0 793.70135 524.89203" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath clipPathUnits="userSpaceOnUse" id="lcp3"><path d="M 0,393.669 H 595.276 V 0 H 0 Z" transform="translate(-122.21241,-213.92841)"/></clipPath>
+    <clipPath clipPathUnits="userSpaceOnUse" id="lcp5"><path d="M 0,393.669 H 595.276 V 0 H 0 Z" transform="translate(-230.67571,-206.29021)"/></clipPath>
+    <clipPath clipPathUnits="userSpaceOnUse" id="lcp7"><path d="M 0,393.669 H 595.276 V 0 H 0 Z" transform="translate(-348.30501,-206.12041)"/></clipPath>
+    <clipPath clipPathUnits="userSpaceOnUse" id="lcp9"><path d="M 0,393.669 H 595.276 V 0 H 0 Z" transform="translate(-418.66181,-188.12811)"/></clipPath>
+    <clipPath clipPathUnits="userSpaceOnUse" id="lcp11"><path d="M 0,393.669 H 595.276 V 0 H 0 Z" transform="translate(-387.38581,-263.39901)"/></clipPath>
+    <clipPath clipPathUnits="userSpaceOnUse" id="lcp13"><path d="M 0,393.669 H 595.276 V 0 H 0 Z" transform="translate(-454.14841,-148.7599)"/></clipPath>
+    <clipPath clipPathUnits="userSpaceOnUse" id="lcp15"><path d="M 0,393.669 H 595.276 V 0 H 0 Z" transform="translate(-246.6142,-106.0761)"/></clipPath>
+    <clipPath clipPathUnits="userSpaceOnUse" id="lcp17"><path d="M 0,393.669 H 595.276 V 0 H 0 Z" transform="translate(-144.3369,-244.79701)"/></clipPath>
+    <clipPath clipPathUnits="userSpaceOnUse" id="lcp21"><path d="M 0,393.669 H 595.276 V 0 H 0 Z" transform="translate(-224.22051,-83.399005)"/></clipPath>
+    <clipPath clipPathUnits="userSpaceOnUse" id="lcp23"><path d="M 0,393.669 H 595.276 V 0 H 0 Z" transform="translate(-508.02181,-216.21661)"/></clipPath>
+  </defs>
+  <path d="M 0,0 C 0.113,16.069 7.582,24.471 22.406,25.206 H 76.383 L 67.471,6.959 H 27.328 C 23.141,6.337 21.076,3.734 21.133,-0.849 v -6.535 h 32.759 c 14.824,-0.792 22.293,-9.222 22.406,-25.291 v -3.649 C 76.185,-51.544 68.66,-59.296 53.722,-59.578 H 22.49 c -14.937,0.282 -22.462,8.034 -22.575,23.254 z m 31.487,-25.715 -10.439,15.87 v -23.678 c 0,-4.979 2.319,-7.724 6.959,-8.233 h 20.199 c 4.639,0.509 6.959,3.254 6.959,8.233 0.057,4.582 -2.008,7.185 -6.195,7.808 z" fill="#ffffff" transform="matrix(1.3333333,0,0,-1.3333333,162.94987,239.65413)" clip-path="url(#lcp3)"/>
+  <path d="m 0,0 h 27.922 c 5.715,0 8.544,2.348 8.487,7.044 0,4.753 -2.857,7.129 -8.572,7.129 H -19.859 V 32.929 H 31.062 C 40.285,32.76 46.989,30.553 51.176,26.31 55.42,22.123 57.485,16.154 57.372,8.402 57.259,0.651 53.072,-4.866 44.811,-8.147 c 8.034,-3.622 12.391,-9.817 13.07,-18.587 v -5.177 C 57.315,-43.17 50.667,-49.875 37.937,-52.025 h -57.796 l 9.335,18.671 h 38.022 c 5.035,0 7.525,2.518 7.468,7.554 0,5.035 -2.489,7.553 -7.468,7.553 H 11.627 Z" fill="#ffffff" transform="matrix(1.3333333,0,0,-1.3333333,307.5676,249.8384)" clip-path="url(#lcp5)"/>
+  <path d="m 0,0 c 4.639,0.509 6.959,2.829 6.959,6.959 0.057,4.583 -2.008,7.186 -6.195,7.808 H -48.291 V 33.014 H 5.686 C 20.51,31.147 27.979,22.745 28.092,7.808 V 5.432 C 27.979,-7.582 20.454,-15.333 5.517,-17.823 h -24.188 c -5.885,0.057 -8.827,-5.148 -8.827,-15.616 H 28.177 L 18.756,-51.77 h -67.132 v 23.933 c 0.17,16.804 7.752,26.083 22.745,27.837 z" fill="#ffffff" transform="matrix(1.3333333,0,0,-1.3333333,464.40667,250.0648)" clip-path="url(#lcp7)"/>
+  <path d="m 0,0 c -4.979,0 -7.497,-2.518 -7.553,-7.553 0,-5.036 2.517,-7.554 7.553,-7.554 h 24.103 c 5.036,0 7.525,2.518 7.469,7.554 0,5.035 -2.49,7.553 -7.469,7.553 z m -10.439,-33.778 c -12.73,2.15 -19.379,8.855 -19.944,20.114 v 5.177 c 0.679,8.77 5.035,14.965 13.07,18.586 -8.261,3.282 -12.448,8.799 -12.561,16.55 -0.113,7.751 1.924,13.721 6.11,17.908 4.244,4.243 10.977,6.45 20.199,6.619 H 27.667 C 36.89,51.007 43.595,48.8 47.782,44.557 52.025,40.37 54.09,34.4 53.977,26.649 53.864,18.898 49.677,13.381 41.416,10.099 49.451,6.478 53.807,0.283 54.486,-8.487 v -5.177 C 53.92,-24.923 47.272,-31.628 34.542,-33.778 Z m 34.966,52.025 c 5.715,0 8.544,2.348 8.487,7.044 0,4.753 -2.857,7.129 -8.572,7.129 H -0.339 c -5.715,0 -8.601,-2.376 -8.657,-7.129 0,-4.696 2.857,-7.044 8.572,-7.044 z" fill="#ffffff" transform="matrix(1.3333333,0,0,-1.3333333,558.21573,274.05453)" clip-path="url(#lcp9)"/>
+  <path d="m 0,0 c 17.429,0 33.283,-6.707 45.154,-17.665 0.526,-0.485 1.209,-0.761 1.925,-0.761 h 11.969 c 3.004,-0.055 5.801,-0.315 8.388,-0.778 2.691,-0.481 4.434,2.724 2.571,4.725 C 56.037,0.528 36.12,9.921 14,9.921 3.411,9.921 -6.673,7.768 -15.841,3.876 -18.999,2.536 -17.555,-2.251 -14.203,-1.521 -9.627,-0.525 -4.875,0 0,0" fill="#162f65" transform="matrix(1.3333333,0,0,-1.3333333,516.5144,173.69333)" clip-path="url(#lcp11)"/>
+  <path d="m 0,0 -0.469,-0.079 h -0.475 -18.649 c -0.717,0 -1.402,-0.278 -1.928,-0.765 -11.881,-11.005 -27.769,-17.745 -45.242,-17.745 -4.842,0 -9.562,0.518 -14.109,1.5 -3.365,0.728 -4.814,-4.073 -1.644,-5.414 9.145,-3.868 19.198,-6.007 29.753,-6.007 21.808,0 41.483,9.123 55.423,23.758 C 4.564,-2.753 2.821,0.482 0.099,0.017 0.066,0.011 0.033,0.006 0,0" fill="#162f65" transform="matrix(1.3333333,0,0,-1.3333333,605.5312,326.54547)" clip-path="url(#lcp13)"/>
+  <path d="m 0,0 c -31.87,0 -59.897,16.44 -76.075,41.298 -0.527,0.81 -1.418,1.307 -2.385,1.307 l -23.559,0.001 c -3.175,0.06 -6.099,0.429 -8.765,1.097 -2.441,0.611 -4.407,-1.964 -3.177,-4.16 17.946,-32.05 52.224,-53.716 91.567,-53.716 14.196,0 27.732,2.821 40.079,7.933 4.332,1.794 2.414,8.35 -2.207,7.556 C 10.448,0.451 5.277,0 0,0" fill="#efab28" transform="matrix(1.3333333,0,0,-1.3333333,328.81893,383.4572)" clip-path="url(#lcp15)"/>
+  <path d="m 0,0 0.141,0.007 h 23.624 c 0.966,0 1.857,0.497 2.383,1.308 16.17,24.905 44.223,41.381 76.129,41.381 5.232,0 10.359,-0.442 15.348,-1.293 4.694,-0.8 6.531,5.808 2.127,7.62 -12.29,5.057 -25.753,7.847 -39.868,7.847 -39.537,0 -73.96,-21.878 -91.833,-54.186 -1.235,-2.233 0.851,-4.793 3.3,-4.076 C -6.018,-0.623 -3.132,-0.155 0,0" fill="#efab28" transform="matrix(1.3333333,0,0,-1.3333333,192.4492,198.496)" clip-path="url(#lcp17)"/>
+  <path d="m 0,0 c -62.621,0 -113.386,50.765 -113.386,113.386 0,62.621 50.765,113.386 113.386,113.386 2.851,0 5.677,-0.108 8.475,-0.316 1.802,-0.134 3.264,1.429 3.007,3.217 -0.206,1.43 -0.737,5.125 -1.18,8.212 l -3.906,27.187 c -0.443,3.087 -3.338,5.924 -6.432,6.306 0,0 -9.782,1.208 -15.838,1.208 -8.253,0 -15.853,-1.094 -15.853,-1.094 -3.086,-0.445 -5.974,-3.333 -6.417,-6.42 l -3.906,-27.187 c -0.443,-3.087 -3.236,-6.39 -6.205,-7.341 l -27.536,-11.385 c -2.766,-1.439 -7.071,-1.088 -9.567,0.781 l -21.992,16.467 c -2.496,1.869 -6.581,1.87 -9.077,10e-4 0,0 -6.148,-4.6 -11.984,-10.436 -4.282,-4.282 -10.345,-12.053 -10.345,-12.053 -1.918,-2.458 -1.958,-6.512 -0.089,-9.008 l 16.456,-21.978 c 1.869,-2.496 2.22,-6.8 0.779,-9.566 l -11.41,-27.557 c -0.952,-2.969 -4.257,-5.761 -7.343,-6.204 l -27.148,-3.9 c -3.086,-0.443 -5.975,-3.331 -6.419,-6.417 0,0 -1.095,-7.6 -1.095,-15.853 0,-6.057 1.208,-15.838 1.208,-15.838 0.382,-3.095 3.22,-5.989 6.306,-6.433 l 27.125,-3.896 c 3.087,-0.444 6.389,-3.236 7.339,-6.206 l 11.406,-27.603 c 1.439,-2.766 1.087,-7.071 -0.782,-9.567 L -138.845,21.96 c -1.869,-2.496 -1.87,-6.581 -0.002,-9.078 0,0 4.6,-6.147 10.436,-11.983 4.283,-4.283 12.053,-10.345 12.053,-10.345 2.459,-1.919 6.512,-1.959 9.008,-0.09 l 21.919,16.413 c 2.496,1.869 6.801,2.219 9.566,0.779 L -48.24,-3.775 c 2.969,-0.951 5.761,-4.255 6.205,-7.341 l 3.891,-27.085 c 0.443,-3.086 3.331,-5.975 6.417,-6.42 0,0 7.6,-1.094 15.853,-1.094 6.055,0 15.832,1.207 15.832,1.207 3.095,0.382 5.99,3.22 6.434,6.306 l 2.339,16.257 c 0.444,3.087 1.157,8.048 1.585,11.026 0.427,2.978 0.778,5.415 0.778,5.415 0.001,0 0.171,1.174 0.377,2.61 C 11.728,-1.11 10.27,0.449 8.473,0.315 5.676,0.107 2.85,0 0,0" fill="#151d3b" transform="matrix(1.3333333,0,0,-1.3333333,298.96067,413.69333)" clip-path="url(#lcp21)"/>
+  <path d="m 0,0 c -3.086,0.443 -6.391,3.235 -7.343,6.205 l -7.439,17.987 c -1.441,2.766 -1.091,7.07 0.778,9.566 l 10.599,14.155 c 1.869,2.496 1.828,6.549 -0.09,9.008 0,0 -3.656,4.686 -6.86,7.89 -4.366,4.366 -7.821,6.951 -7.821,6.951 -2.497,1.868 -6.581,1.868 -9.077,-0.001 L -41.418,61.154 c -2.496,-1.869 -6.801,-2.22 -9.567,-0.781 l -17.971,7.422 c -2.97,0.951 -5.762,4.254 -6.206,7.341 l -2.515,17.51 c -0.444,3.087 -3.331,5.976 -6.418,6.42 0,0 -4.271,0.615 -10.445,0.615 -4.531,0 -10.43,-0.728 -10.43,-0.728 -3.095,-0.382 -5.99,-3.22 -6.433,-6.307 l -2.515,-17.51 c -0.444,-3.087 -0.876,-6.097 -0.961,-6.691 -0.256,-1.777 1.188,-3.328 2.98,-3.213 1.813,0.117 3.642,0.177 5.484,0.177 46.845,0 84.82,-37.975 84.82,-84.82 0,-46.845 -37.975,-84.82 -84.82,-84.82 -1.834,0 -3.654,0.059 -5.459,0.175 -1.8,0.115 -3.251,-1.444 -2.994,-3.229 0.084,-0.585 0.153,-1.064 0.153,-1.064 0.001,0 0.259,-1.79 0.573,-3.978 0.314,-2.188 0.935,-6.503 1.379,-9.589 l 1.363,-9.479 c 0.444,-3.087 3.34,-5.924 6.434,-6.306 0,0 5.896,-0.728 10.426,-0.728 6.174,0 10.445,0.615 10.445,0.615 3.087,0.444 5.974,3.333 6.418,6.42 l 2.504,17.433 c 0.444,3.087 3.236,6.39 6.205,7.341 l 18.038,7.456 c 2.766,1.44 7.07,1.09 9.566,-0.779 l 14.111,-10.566 c 2.496,-1.869 6.549,-1.828 9.008,0.09 0,0 4.686,3.656 7.89,6.86 4.366,4.366 6.951,7.821 6.951,7.821 1.868,2.497 1.868,6.581 -10e-4,9.077 l -10.574,14.121 c -1.869,2.496 -2.22,6.801 -0.781,9.567 l 7.438,18.022 c 0.95,2.969 4.252,5.762 7.339,6.205 l 17.463,2.509 c 3.087,0.444 5.925,3.338 6.307,6.433 0,0 0.728,5.899 0.728,10.43 0,6.174 -0.615,10.445 -0.615,10.445 -0.444,3.087 -3.333,5.975 -6.42,6.418 z" fill="#151d3b" transform="matrix(1.3333333,0,0,-1.3333333,677.3624,236.6032)" clip-path="url(#lcp23)"/>
+</svg>
     </div>
     <div class="hdr-divider"></div>
     <span class="hdr-title">Manufacturing Pipeline</span>
     <div class="hdr-right">
       <div class="hdr-user"><div class="hdr-user-dot"></div><span id="hdr-user">Guest</span></div>
+      <!-- View toggle -->
+      <div class="view-toggle">
+        <button class="view-toggle-btn active" id="btn-view-kanban" onclick="setView('kanban')" title="Kanban">
+          ⊞ Board
+        </button>
+        <button class="view-toggle-btn" id="btn-view-list" onclick="setView('list')" title="List">
+          ☰ List
+        </button>
+      </div>
       <button class="btn-new" onclick="openNewCardModal()">+ New Card</button>
       <button class="btn-signout" onclick="loadCards()">↺ Refresh</button>
       <button class="btn-signout" onclick="signOut()">Sign Out</button>
@@ -181,22 +277,27 @@ header{background:var(--blue-dk);border-bottom:3px solid var(--gold);padding:10p
   </header>
   <div class="filter-bar">
     <label>Filter:</label>
-    <select class="filter-select" id="filter-project" onchange="buildBoard()">
+    <select class="filter-select" id="filter-project" onchange="renderCurrentView()">
       <option value="">All Projects</option>
       <option>Comp Bot</option><option>Dev Bot</option><option>Prototype</option>
       <option>Spare</option><option>Off-Season</option><option>Kitbot</option>
     </select>
-    <select class="filter-select" id="filter-machine" onchange="buildBoard()">
+    <select class="filter-select" id="filter-machine" onchange="renderCurrentView()">
       <option value="">All Machines</option>
       <option>CNC Mill</option><option>CNC Router</option><option>Lathe</option>
       <option>Mill</option><option>3D Printer</option><option>Chop Saw</option><option>Laser Cutter</option>
     </select>
-    <select class="filter-select" id="filter-assigned" onchange="buildBoard()">
+    <select class="filter-select" id="filter-assigned" onchange="renderCurrentView()">
       <option value="">All Assignees</option>
     </select>
     <span class="filter-count" id="filter-count"></span>
   </div>
-  <div id="board"></div>
+
+  <!-- KANBAN VIEW -->
+  <div id="board-kanban"></div>
+
+  <!-- LIST VIEW -->
+  <div id="board-list"></div>
 </div>
 
 <!-- CARD MODAL -->
@@ -261,6 +362,23 @@ const STATUSES = [
 ];
 
 let allCards = [], editingId = null, userEmail = null, dragCardId = null;
+let currentView = 'kanban'; // 'kanban' | 'list'
+let collapsedGroups = new Set(); // which status groups are collapsed in list view
+
+// ── VIEW TOGGLE ──────────────────────────────────────────────
+function setView(v) {
+  currentView = v;
+  document.getElementById('btn-view-kanban').classList.toggle('active', v === 'kanban');
+  document.getElementById('btn-view-list').classList.toggle('active', v === 'list');
+  document.getElementById('board-kanban').style.display = v === 'kanban' ? 'flex' : 'none';
+  document.getElementById('board-list').style.display   = v === 'list'   ? 'flex' : 'none';
+  renderCurrentView();
+}
+
+function renderCurrentView() {
+  if (currentView === 'kanban') buildBoard();
+  else buildListView();
+}
 
 // ── AUTH ────────────────────────────────────────────────────
 function handleGoogleSignIn(response) {
@@ -282,6 +400,9 @@ function continueAsGuest() {
 function showApp() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
+  // Ensure correct initial display state
+  document.getElementById('board-kanban').style.display = 'flex';
+  document.getElementById('board-list').style.display = 'none';
   loadCards();
 }
 function signOut() {
@@ -292,12 +413,9 @@ function signOut() {
 }
 function parseJwt(t) { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); }
 
-// Auto-launch: if no Google Client ID is configured, skip auth and load as guest
 window.addEventListener('DOMContentLoaded', () => {
   const clientId = document.getElementById('g_id_onload')?.dataset?.client_id || '';
-  if (!clientId || clientId === 'YOUR_GOOGLE_CLIENT_ID_HERE') {
-    continueAsGuest();
-  }
+  if (!clientId || clientId === 'YOUR_GOOGLE_CLIENT_ID_HERE') continueAsGuest();
 });
 
 // ── API ─────────────────────────────────────────────────────
@@ -320,14 +438,14 @@ async function loadCards() {
   try {
     const d = await apiGet();
     allCards = d.cards || [];
-    buildBoard();
+    renderCurrentView();
     populateAssigneeFilter();
   } catch(e) { toast('Failed to load: ' + e.message, 'error'); }
   finally { showLoading(false); }
 }
 
-// ── BOARD ───────────────────────────────────────────────────
-function buildBoard() {
+// ── FILTER HELPER ────────────────────────────────────────────
+function getFiltered() {
   const fp = document.getElementById('filter-project').value;
   const fm = document.getElementById('filter-machine').value;
   const fa = document.getElementById('filter-assigned').value;
@@ -335,7 +453,13 @@ function buildBoard() {
     (!fp || c.project === fp) && (!fm || c.machine === fm) && (!fa || c.assigned_to === fa));
   document.getElementById('filter-count').textContent =
     `${filtered.length} of ${allCards.length} card${allCards.length!==1?'s':''}`;
-  const board = document.getElementById('board');
+  return filtered;
+}
+
+// ── KANBAN ───────────────────────────────────────────────────
+function buildBoard() {
+  const filtered = getFiltered();
+  const board = document.getElementById('board-kanban');
   board.innerHTML = '';
   STATUSES.forEach(s => {
     const cards = filtered.filter(c => c.status === s.id);
@@ -392,6 +516,139 @@ function makeCardEl(card) {
     ${card.cad_link?`<div class="card-cad"><a href="${esc(card.cad_link)}" target="_blank">↗ Open in OnShape</a></div>`:''}
     ${card.step_file_id?`<div class="card-step"><button class="btn-step" onclick="downloadStep(event,'${card.id}','${esc(card.step_file_name||card.step_file_id)}')">⬇ STEP</button></div>`:''}`;
   return el;
+}
+
+// ── LIST VIEW ────────────────────────────────────────────────
+function buildListView() {
+  const filtered = getFiltered();
+  const container = document.getElementById('board-list');
+  container.innerHTML = '';
+
+  STATUSES.forEach(s => {
+    const cards = filtered.filter(c => c.status === s.id);
+    const isCollapsed = collapsedGroups.has(s.id);
+
+    const group = document.createElement('div');
+    group.className = 'list-group';
+
+    const header = document.createElement('div');
+    header.className = 'list-group-header';
+    header.innerHTML = `
+      <span class="list-group-chevron${isCollapsed?' collapsed':''}">▾</span>
+      <div class="list-group-dot" style="background:${s.color}"></div>
+      <span class="list-group-name">${s.id}</span>
+      <span class="list-group-count">${cards.length}</span>`;
+    header.addEventListener('click', () => toggleGroup(s.id, group));
+    group.appendChild(header);
+
+    const tableWrap = document.createElement('div');
+    tableWrap.className = 'list-table-wrap';
+    tableWrap.style.display = isCollapsed ? 'none' : 'block';
+
+    const table = document.createElement('table');
+    table.className = 'list-table';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th style="min-width:200px">Part Name</th>
+          <th style="min-width:90px">Project</th>
+          <th style="min-width:105px">Machine</th>
+          <th style="min-width:90px">Part Type</th>
+          <th style="min-width:130px">Material</th>
+          <th style="min-width:70px">Thickness</th>
+          <th style="min-width:110px">Finish</th>
+          <th style="min-width:45px">Qty</th>
+          <th style="min-width:110px">Assignee</th>
+          <th style="min-width:160px">Notes</th>
+          <th style="min-width:80px">CAD</th>
+          <th style="min-width:80px">File</th>
+          <th style="min-width:80px">Submitted</th>
+          <th style="min-width:60px"></th>
+        </tr>
+      </thead>
+      <tbody></tbody>`;
+    const tbody = table.querySelector('tbody');
+    const COLS = 14;
+
+    if (cards.length === 0) {
+      tbody.innerHTML = `<tr class="list-row-empty"><td colspan="${COLS}">No cards</td></tr>`;
+    } else {
+      cards.forEach(card => {
+        const tr = document.createElement('tr');
+        tr.addEventListener('click', (e) => {
+          if (e.target.closest('button')) return;
+          openEditModal(card.id);
+        });
+
+        // Material
+        const matParts = [];
+        if (card.material) matParts.push(`<span class="lt-mat-name">${esc(card.material)}</span>`);
+        const matHtml = matParts.length ? matParts[0] : '<span style="color:var(--muted)">—</span>';
+
+        const badge = (val, cls) => val
+          ? `<span class="lt-badge ${cls}">${esc(val)}</span>`
+          : '<span style="color:var(--muted)">—</span>';
+
+        const finishDisplay = card.finish && card.finish !== 'None' && card.finish !== ''
+          ? card.finish.replace('Powder Coat — ', 'PC ') : null;
+
+        const stepHtml = card.step_file_id
+          ? `<button class="lt-step-btn" onclick="downloadStep(event,'${card.id}','${esc(card.step_file_name||card.step_file_id)}')">⬇ STEP</button>`
+          : '<span style="color:var(--muted)">—</span>';
+
+        const cadHtml = card.cad_link
+          ? `<div class="lt-cad"><a href="${esc(card.cad_link)}" target="_blank" onclick="event.stopPropagation()">↗ CAD</a></div>`
+          : '<span style="color:var(--muted)">—</span>';
+
+        tr.innerHTML = `
+          <td><div class="lt-name">${esc(card.name)}</div></td>
+          <td>${badge(card.project, 'lt-badge-project')}</td>
+          <td>${badge(card.machine, 'lt-badge-machine')}</td>
+          <td>${badge(card.part_type, 'lt-badge-parttype')}</td>
+          <td>${matHtml}</td>
+          <td>${card.thickness ? `<span class="lt-mat-thick">${esc(card.thickness)}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
+          <td>${finishDisplay ? `<span class="lt-badge lt-badge-finish">${esc(finishDisplay)}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
+          <td><span class="lt-qty">${card.quantity || '—'}</span></td>
+          <td><span class="lt-assignee">${card.assigned_to ? esc(card.assigned_to) : '—'}</span></td>
+          <td>${card.notes ? `<span class="lt-notes" title="${esc(card.notes)}">${esc(card.notes)}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
+          <td>${cadHtml}</td>
+          <td>${stepHtml}</td>
+          <td>${card.created_at ? `<span class="lt-date">${timeAgo(card.created_at)}</span>` : '—'}</td>
+          <td>
+            <div class="lt-actions">
+              <button class="lt-btn" onclick="openEditModal('${card.id}')" title="Edit">✎</button>
+              <button class="lt-btn lt-btn-del" onclick="confirmDelete('${card.id}')" title="Delete">✕</button>
+            </div>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    tableWrap.appendChild(table);
+    group.appendChild(tableWrap);
+    container.appendChild(group);
+  });
+}
+
+function toggleGroup(statusId, groupEl) {
+  const isNowCollapsed = !collapsedGroups.has(statusId);
+  if (isNowCollapsed) collapsedGroups.add(statusId);
+  else collapsedGroups.delete(statusId);
+  const chevron = groupEl.querySelector('.list-group-chevron');
+  const tableWrap = groupEl.querySelector('.list-table-wrap');
+  chevron.classList.toggle('collapsed', isNowCollapsed);
+  tableWrap.style.display = isNowCollapsed ? 'none' : 'block';
+}
+
+function timeAgo(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days === 0) return 'Today';
+  if (days === 1) return '1 day ago';
+  if (days < 30) return `${days} days ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 8) return `${weeks}w ago`;
+  return new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric' });
 }
 
 function populateAssigneeFilter() {
@@ -489,7 +746,7 @@ async function saveCard() {
       allCards.unshift(res.card);
       toast('Card created');
     }
-    closeModal(); buildBoard(); populateAssigneeFilter();
+    closeModal(); renderCurrentView(); populateAssigneeFilter();
   } catch(e) { toast('Error: '+e.message,'error'); }
   finally { btn.disabled=false; btn.textContent=editingId?'Save Changes':'Create Card'; }
 }
@@ -497,7 +754,7 @@ function deleteCurrentCard() { if(editingId) confirmDelete(editingId, true); }
 async function confirmDelete(id, fromModal=false) {
   if (!confirm('Delete this card? Cannot be undone.')) return;
   if (fromModal) closeModal();
-  allCards = allCards.filter(c=>c.id!==id); buildBoard();
+  allCards = allCards.filter(c=>c.id!==id); renderCurrentView();
   try { await apiPost({ action:'deleteCard', id }); toast('Card deleted'); }
   catch(e) { toast('Delete failed: '+e.message,'error'); loadCards(); }
 }
@@ -505,27 +762,17 @@ async function confirmDelete(id, fromModal=false) {
 // ── STEP DOWNLOAD ───────────────────────────────────────────
 async function downloadStep(e, cardId, filename) {
   const btn = e.target;
-  btn.disabled = true;
-  btn.textContent = '⏳ Getting link...';
+  btn.disabled = true; btn.textContent = '⏳';
   try {
     const card = allCards.find(c => c.id === cardId);
     if (!card?.step_file_id) throw new Error('No STEP file on this card');
     const res = await apiPost({ action: 'getStepUrl', path: card.step_file_id });
-    // Trigger download via a temp anchor
     const a = document.createElement('a');
-    a.href = res.url;
-    a.download = filename || 'part.step';
-    a.target = '_blank';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    a.href = res.url; a.download = filename || 'part.step'; a.target = '_blank';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
     toast('Downloading ' + (filename || 'part.step'));
-  } catch(err) {
-    toast('Download failed: ' + err.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '⬇ STEP';
-  }
+  } catch(err) { toast('Download failed: ' + err.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = '⬇ STEP'; }
 }
 
 // ── UTILS ───────────────────────────────────────────────────
