@@ -91,6 +91,36 @@ export default async function handler(req, res) {
       if (status >= 400) return res.status(status).json({ error: data });
       return res.json({ ok: true });
 
+    } else if (action === 'uploadStep') {
+      // Upload a STEP file to Supabase Storage bucket 'step-files'
+      // Receives base64-encoded file, stores at step-files/{cardId}/{filename}
+      const { filename, cardId, fileBase64 } = req.body || {};
+      if (!filename || !fileBase64) return res.status(400).json({ error: 'Missing filename or fileBase64' });
+
+      const fileBuffer = Buffer.from(fileBase64, 'base64');
+      const storagePath = `${cardId || 'unassigned'}/${filename}`;
+      const storageUrl = `${SUPABASE_URL}/storage/v1/object/step-files/${storagePath}`;
+
+      const uploadResp = await fetch(storageUrl, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/octet-stream',
+          'x-upsert': 'true',
+        },
+        body: fileBuffer,
+      });
+
+      if (!uploadResp.ok) {
+        const err = await uploadResp.text();
+        return res.status(uploadResp.status).json({ error: 'Storage upload failed: ' + err });
+      }
+
+      // Return the public URL
+      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/step-files/${storagePath}`;
+      return res.json({ ok: true, url: publicUrl });
+
     } else {
       return res.status(400).json({ error: 'Unknown action: ' + action });
     }
