@@ -68,10 +68,21 @@ export default async function handler(req, res) {
     } else if (action === 'updateCard') {
       const fields = {};
       const map = {
-        name: 'name', status: 'status', project: 'project', machine: 'machine',
-        material: 'material', thickness: 'thickness', partType: 'part_type',
-        quantity: 'quantity', finish: 'finish', assigned: 'assigned_to',
-        cadLink: 'cad_link', notes: 'notes',
+        name:         'name',
+        status:       'status',
+        project:      'project',
+        machine:      'machine',
+        material:     'material',
+        thickness:    'thickness',
+        partType:     'part_type',
+        quantity:     'quantity',
+        finish:       'finish',
+        assigned:     'assigned_to',
+        cadLink:      'cad_link',
+        notes:        'notes',
+        // FIX: these were missing — caused STEP file path to never save on updateCard
+        stepFileId:   'step_file_id',
+        stepFileName: 'step_file_name',
       };
       for (const [k, col] of Object.entries(map)) {
         if (updates?.[k] !== undefined) fields[col] = updates[k] || null;
@@ -93,15 +104,12 @@ export default async function handler(req, res) {
 
     } else if (action === 'uploadStep') {
       // Upload a STEP file to private Supabase Storage bucket 'step-files'
-      // Bucket must be set to PRIVATE in Supabase dashboard
-      // Files stored at: {cardId}/{filename}
       const { filename, cardId, fileBase64 } = req.body || {};
       if (!filename || !fileBase64) return res.status(400).json({ error: 'Missing filename or fileBase64' });
 
       const fileBuffer = Buffer.from(fileBase64, 'base64');
       const storagePath = `${cardId || 'unassigned'}/${filename}`;
 
-      // Upload to private bucket
       const uploadResp = await fetch(
         `${SUPABASE_URL}/storage/v1/object/step-files/${storagePath}`, {
         method: 'POST',
@@ -119,13 +127,10 @@ export default async function handler(req, res) {
         return res.status(uploadResp.status).json({ error: 'Storage upload failed: ' + err });
       }
 
-      // Return the storage path (not a public URL — files are private)
-      // Use getStepUrl action to generate a signed URL when needed for download
       return res.json({ ok: true, path: storagePath });
 
     } else if (action === 'getStepUrl') {
       // Generate a short-lived signed URL for downloading a private STEP file
-      // Signed URLs expire after 1 hour — enough time to download, not permanent exposure
       const { path: filePath } = req.body || {};
       if (!filePath) return res.status(400).json({ error: 'Missing path' });
 
@@ -137,7 +142,7 @@ export default async function handler(req, res) {
           'Authorization': `Bearer ${SUPABASE_KEY}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ expiresIn: 3600 }), // 1 hour
+        body: JSON.stringify({ expiresIn: 3600 }),
       });
 
       if (!signResp.ok) {
