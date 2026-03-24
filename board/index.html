@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Board — FRC 6328 v1.87</title>
+<title>Manufacturing Board — FRC 6328 v1.88</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -57,6 +57,10 @@ header{background:var(--blue-dk);border-bottom:3px solid var(--gold);padding:10p
 .filter-select{font-family:'Barlow',sans-serif;font-size:.78rem;background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:4px 8px;cursor:pointer;}
 .filter-select:focus{outline:none;border-color:var(--gold);}
 .filter-count{margin-left:auto;font-size:.72rem;color:var(--muted);}
+.filter-search{font-family:'Barlow',sans-serif;font-size:.78rem;background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:4px 10px 4px 28px;outline:none;transition:border-color .15s;width:180px;}
+.filter-search:focus{border-color:var(--gold);}
+.filter-search-wrap{position:relative;display:flex;align-items:center;}
+.filter-search-wrap::before{content:'⌕';position:absolute;left:8px;color:var(--muted);font-size:.9rem;pointer-events:none;}
 
 /* ── KANBAN ────────────────────────────────────────── */
 #board-kanban{flex:1;overflow-x:auto;overflow-y:hidden;display:flex;gap:10px;padding:16px 20px;align-items:flex-start;}
@@ -290,6 +294,9 @@ tr:hover .lt-actions{opacity:1;}
     <select class="filter-select" id="filter-assigned" onchange="renderCurrentView()">
       <option value="">All Assignees</option>
     </select>
+    <div class="filter-search-wrap">
+      <input class="filter-search" id="filter-search" type="text" placeholder="Search cards..." oninput="renderCurrentView()"/>
+    </div>
     <span class="filter-count" id="filter-count"></span>
   </div>
 
@@ -469,8 +476,13 @@ function getFiltered() {
   const fp = document.getElementById('filter-project').value;
   const fm = document.getElementById('filter-machine').value;
   const fa = document.getElementById('filter-assigned').value;
+  const fs = document.getElementById('filter-search').value.trim().toLowerCase();
   const filtered = allCards.filter(c =>
-    (!fp || c.project === fp) && (!fm || c.machine === fm) && (!fa || c.assigned_to === fa));
+    (!fp || c.project === fp) &&
+    (!fm || c.machine === fm) &&
+    (!fa || c.assigned_to === fa) &&
+    (!fs || c.name.toLowerCase().includes(fs))
+  );
   document.getElementById('filter-count').textContent =
     `${filtered.length} of ${allCards.length} card${allCards.length!==1?'s':''}`;
   return filtered;
