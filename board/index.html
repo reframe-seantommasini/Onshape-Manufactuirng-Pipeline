@@ -118,7 +118,19 @@ header{background:var(--blue-dk);border-bottom:3px solid var(--gold);padding:10p
 .btn-delete{font-family:'Barlow Condensed',sans-serif;font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:transparent;color:var(--danger);border:1px solid rgba(224,82,82,.3);border-radius:6px;padding:7px 14px;cursor:pointer;transition:all .15s;margin-right:auto;}
 .btn-delete:hover{background:rgba(224,82,82,.1);}
 
-/* Loading / Toast */
+/* STEP download */
+.card-step{margin-top:6px;padding-top:6px;border-top:1px solid var(--border);}
+.btn-step{
+  font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;
+  background:rgba(52,211,153,.1);color:#34d399;
+  border:1px solid rgba(52,211,153,.25);border-radius:5px;
+  padding:3px 9px;cursor:pointer;transition:all .15s;
+  display:inline-flex;align-items:center;gap:5px;
+}
+.btn-step:hover{background:rgba(52,211,153,.2);border-color:rgba(52,211,153,.5);}
+.btn-step:disabled{opacity:.5;cursor:not-allowed;}
+
 #loading{position:fixed;inset:0;background:rgba(8,15,36,.8);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:90;}
 #loading.show{display:flex;}
 .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;}
@@ -368,7 +380,8 @@ function makeCardEl(card) {
     ${tags.length?`<div class="card-tags">${tags.join('')}</div>`:''}
     ${meta.length?`<div class="card-meta">${meta.join('')}</div>`:''}
     ${card.notes?`<div class="card-notes">${esc(card.notes.slice(0,80))}${card.notes.length>80?'…':''}</div>`:''}
-    ${card.cad_link?`<div class="card-cad"><a href="${esc(card.cad_link)}" target="_blank">↗ Open in OnShape</a></div>`:''}`;
+    ${card.cad_link?`<div class="card-cad"><a href="${esc(card.cad_link)}" target="_blank">↗ Open in OnShape</a></div>`:''}
+    ${card.step_file_id?`<div class="card-step"><button class="btn-step" onclick="downloadStep(event,'${card.id}','${esc(card.step_file_name||card.step_file_id)}')">⬇ STEP</button></div>`:''}`;
   return el;
 }
 
@@ -478,6 +491,32 @@ async function confirmDelete(id, fromModal=false) {
   allCards = allCards.filter(c=>c.id!==id); buildBoard();
   try { await apiPost({ action:'deleteCard', id }); toast('Card deleted'); }
   catch(e) { toast('Delete failed: '+e.message,'error'); loadCards(); }
+}
+
+// ── STEP DOWNLOAD ───────────────────────────────────────────
+async function downloadStep(e, cardId, filename) {
+  const btn = e.target;
+  btn.disabled = true;
+  btn.textContent = '⏳ Getting link...';
+  try {
+    const card = allCards.find(c => c.id === cardId);
+    if (!card?.step_file_id) throw new Error('No STEP file on this card');
+    const res = await apiPost({ action: 'getStepUrl', path: card.step_file_id });
+    // Trigger download via a temp anchor
+    const a = document.createElement('a');
+    a.href = res.url;
+    a.download = filename || 'part.step';
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    toast('Downloading ' + (filename || 'part.step'));
+  } catch(err) {
+    toast('Download failed: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⬇ STEP';
+  }
 }
 
 // ── UTILS ───────────────────────────────────────────────────
