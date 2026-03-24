@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Pipeline — FRC 6328 v1.73</title>
+<title>Manufacturing Pipeline — FRC 6328 v1.75</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
   :root {
@@ -151,7 +151,7 @@
     <div class="hdr-divider"></div>
     <span class="hdr-title">Mfg Pipeline</span>
     <span class="doc-badge" id="doc-label">No document</span>
-    <span style="font-size:.6rem;color:var(--muted);margin-left:4px;">v1.73</span>
+    <span style="font-size:.6rem;color:var(--muted);margin-left:4px;">v1.75</span>
   </header>
 
   <div id="selection-banner">
@@ -1361,7 +1361,8 @@ function setFile(file){
 }
 
 // ── STEP EXPORT ──
-const STEP_TIMEOUT_MS = 20000; // skip file if export takes longer than 20s
+const STEP_TIMEOUT_MS = 20000;
+const STEP_POLL_MS    = 3000; // increased from 1500 to reduce OnShape API usage
 
 async function exportStepFile(part) {
   if (CONFIG.demo) return null;
@@ -1385,11 +1386,11 @@ async function exportStepFile(part) {
   const trans = await transResp.json();
   const translationId = trans.id;
 
-  // 2. Poll until DONE or timeout (via proxy)
+  // 2. Poll until DONE or timeout (3s intervals to save OnShape API requests)
   const deadline = Date.now() + STEP_TIMEOUT_MS;
   let foreignId = null;
   while (Date.now() < deadline) {
-    await new Promise(r => setTimeout(r, 1500));
+    await new Promise(r => setTimeout(r, STEP_POLL_MS));
     const poll = await onshapeFetch(`/translations/${translationId}`);
     if (poll.requestState === 'DONE') {
       foreignId = poll.resultExternalDataIds?.[0];
@@ -1397,7 +1398,7 @@ async function exportStepFile(part) {
     }
     if (poll.requestState === 'FAILED') throw new Error('Translation failed');
   }
-  if (!foreignId) return null; // timed out — caller will warn
+  if (!foreignId) return null;
 
   // 3. Download file bytes via proxy (binary passthrough)
   const filePath = `/documents/d/${docId}/externaldata/${foreignId}`;
@@ -1407,33 +1408,30 @@ async function exportStepFile(part) {
   return { blob, filename: `${part.name.replace(/\s+/g,'_')}.step` };
 }
 
-async function uploadStepToSlack(fileData, channelId, partName) {
-  // Step A: get upload URL via proxy
-  const urlData = await (await fetch('/api/slack', {
+async function uploadStepToSupabase(fileData, cardId) {
+  // Upload STEP file to Supabase Storage via /api/board proxy
+  // Returns the public URL of the uploaded file
+  const arrayBuffer = await fileData.blob.arrayBuffer();
+  const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+  const resp = await fetch('/api/board', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'getUploadURL', payload: {
-      filename: fileData.filename, length: fileData.blob.size
-    }})
-  })).json();
-  if (!urlData.ok) throw new Error('Slack upload URL error: ' + urlData.error);
-
-  // Step B: PUT file bytes directly to Slack's upload URL (this is a pre-signed URL, no token needed)
-  await fetch(urlData.upload_url, { method: 'PUT', body: fileData.blob });
-
-  // Step C: complete upload via proxy
-  const completeData = await (await fetch('/api/slack', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'completeUpload', payload: {
-      file_id: urlData.file_id,
-      title: `${partName} — STEP File`
-    }})
-  })).json();
-  if (!completeData.ok) throw new Error('Slack complete upload error: ' + completeData.error);
+    body: JSON.stringify({
+      action: 'uploadStep',
+      filename: fileData.filename,
+      cardId,
+      fileBase64: base64,
+    }),
+  });
+  const data = await resp.json();
+  if (!data.ok) throw new Error(data.error || 'Step upload error');
+  return data.url;
 }
 
 // ── SUBMIT ──
+// Statuses that require a STEP file export (CNC/laser only)
+const STEP_STATUSES = new Set(['Needs CAM', 'Needs Slicing']);
+
 function skipPart(){advanceQueue();}
 async function submitPart(){
   const name=v('f-name'),qty=v('f-qty'),project=getPillVal('project'),status=v('f-status');
@@ -1451,38 +1449,57 @@ async function submitPart(){
     if(CONFIG.demo){
       btn.innerHTML='<span class="spinner"></span> Sending...';
       await new Promise(r=>setTimeout(r,700));
-      console.log('DEMO:',payload);
+      console.log('[MFG v1.75] DEMO:',payload);
     } else {
-      // 1. Post the card to Slack chat AND add to kanban board — in parallel
-      btn.innerHTML='<span class="spinner"></span> Posting card...';
-      const [, boardResult] = await Promise.allSettled([
-        postToSlack(payload),
-        addToBoard(payload)
-      ]);
-      if (boardResult.status === 'rejected') {
-        showToast(`⚠️ Board sync failed: ${boardResult.reason?.message}`, true);
-      }
-
-      // 2. Export + upload STEP file
-      btn.innerHTML='<span class="spinner"></span> Exporting STEP...';
+      // 1. Create card in Supabase first to get an ID
+      btn.innerHTML='<span class="spinner"></span> Saving card...';
+      let cardResult;
       try {
-        const fileData = await exportStepFile(part);
-        if (fileData) {
-          btn.innerHTML='<span class="spinner"></span> Uploading STEP...';
-          await uploadStepToSlack(fileData, null, name); // channel set server-side
-        } else {
-          showToast(`⚠️ STEP export timed out for "${name}" — card posted without file`, true);
+        cardResult = await addToBoard(payload);
+      } catch(boardErr) {
+        throw new Error('Board sync failed: ' + boardErr.message);
+      }
+      const cardId = cardResult?.card?.id || null;
+
+      // 2. Export + upload STEP to Supabase Storage — only for CNC/laser parts
+      const needsStep = STEP_STATUSES.has(status);
+      if (needsStep && cardId) {
+        btn.innerHTML='<span class="spinner"></span> Exporting STEP...';
+        try {
+          const fileData = await exportStepFile(part);
+          if (fileData) {
+            btn.innerHTML='<span class="spinner"></span> Uploading STEP...';
+            const stepUrl = await uploadStepToSupabase(fileData, cardId);
+            payload.stepFileUrl  = stepUrl;
+            payload.stepFileName = fileData.filename;
+            // Update card in Supabase with the STEP file URL
+            await fetch('/api/board', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'updateCard', id: cardId,
+                updates: { stepFileId: stepUrl, stepFileName: fileData.filename }
+              }),
+            });
+            console.log(`[MFG v1.75] STEP saved to Supabase: ${stepUrl}`);
+          } else {
+            showToast(`⚠️ STEP export timed out for "${name}" — card saved without file`, true);
+          }
+        } catch(stepErr) {
+          console.warn('[MFG v1.75] STEP export failed:', stepErr.message);
+          showToast(`⚠️ STEP export failed for "${name}": ${stepErr.message}`, true);
         }
-      } catch(stepErr) {
-        // Don't block card submission if STEP fails
-        showToast(`⚠️ STEP export failed for "${name}": ${stepErr.message}`, true);
+      } else if (needsStep && !cardId) {
+        console.warn('[MFG v1.75] No cardId returned — skipping STEP upload');
+      } else {
+        console.log(`[MFG v1.75] Skipping STEP — status "${status}" does not require it`);
       }
     }
 
     addToHistory(payload);
-    showToast(`✓ Card + STEP created for "${name}"`);
+    showToast(`✓ Card submitted for "${name}"`);
     advanceQueue();
-  }catch(err){showToast('Slack error: '+err.message,true);}
+  }catch(err){showToast('Submit error: '+err.message,true);}
   finally{btn.disabled=false;btn.textContent=queueIdx>=queue.length-1?'✓ Submit':'Submit & Next →';}
 }
 function advanceQueue(){
@@ -1510,8 +1527,7 @@ function addToHistory(p){
 }
 
 // ── BOARD SYNC ──
-// Posts card data to the Supabase-backed board API (same Vercel deployment)
-async function addToBoard(p){
+async function addToBoard(p) {
   const resp = await fetch('/api/board', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1520,18 +1536,6 @@ async function addToBoard(p){
   const data = await resp.json();
   if (!data.ok) throw new Error(data.error || 'Board sync error');
   return data;
-}
-
-// ── SLACK ──
-async function postToSlack(p){
-  // Routed through /api/slack proxy — Slack token stays server-side
-  const resp = await fetch('/api/slack', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'postMessage', payload: p })
-  });
-  const data = await resp.json();
-  if(!data.ok) throw new Error(data.error || 'Slack proxy error');
 }
 
 // ── TOAST ──
