@@ -1,6 +1,13 @@
-// Vercel serverless function — proxies all kanban board API calls to Supabase.
-// Supabase credentials never touch the browser.
-// Supports: getCards, createCard, updateCard, moveCard, deleteCard
+// Vercel serverless function — proxies all kanban board API calls.
+// Database: Neon (serverless Postgres) via @neondatabase/serverless
+// File storage: Vercel Blob via @vercel/blob
+//
+// Required Vercel env vars (auto-populated when you connect via Vercel dashboard):
+//   DATABASE_URL          — Neon connection string (added automatically by Neon integration)
+//   BLOB_READ_WRITE_TOKEN — Vercel Blob token (added automatically by Blob integration)
+
+import { neon } from '@neondatabase/serverless';
+import { put, del } from '@vercel/blob';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -8,157 +15,119 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
-
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
-    return res.status(500).json({ error: 'Supabase credentials not configured' });
+  if (!process.env.DATABASE_URL) {
+    return res.status(500).json({ error: 'DATABASE_URL not configured — connect Neon in Vercel dashboard' });
+  }
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    return res.status(500).json({ error: 'BLOB_READ_WRITE_TOKEN not configured — connect Blob in Vercel dashboard' });
   }
 
-  // Helper: call Supabase REST API
-  const sb = async (method, path, body) => {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
-      method,
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': method === 'POST' ? 'return=representation' : 'return=minimal',
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    const text = await r.text();
-    return { status: r.status, data: text ? JSON.parse(text) : null };
-  };
+  const sql = neon(process.env.DATABASE_URL);
 
   try {
     // GET → getCards
     if (req.method === 'GET') {
-      const { status, data } = await sb('GET', '/cards?order=created_at.desc&select=*');
-      if (status >= 400) return res.status(status).json({ error: data });
-      return res.json({ ok: true, cards: data });
+      const cards = await sql`SELECT * FROM cards ORDER BY created_at DESC`;
+      return res.json({ ok: true, cards });
     }
 
     // POST → action-based
     const { action, card, id, status: newStatus, updates } = req.body || {};
 
     if (action === 'createCard') {
-      const row = {
-        name:           card.name          || '',
-        status:         card.status        || 'Needs Drawing',
-        project:        card.project       || null,
-        machine:        card.machine       || null,
-        material:       card.material      || null,
-        thickness:      card.thickness     || null,
-        part_type:      card.partType      || null,
-        quantity:       card.qty ? parseInt(card.qty, 10) : null,
-        finish:         card.finish        || null,
-        assigned_to:    card.student       || card.assigned_to || null,
-        cad_link:       card.cadLink       || card.cad_link    || null,
-        notes:          card.notes         || null,
-        step_file_id:   card.stepFileId    || null,
-        step_file_name: card.stepFileName  || null,
-        part_id:        card.partId        || null,
-        submitted_by:   card.submittedBy   || null,
-      };
-      const { status, data } = await sb('POST', '/cards', row);
-      if (status >= 400) return res.status(status).json({ error: data });
-      return res.json({ ok: true, card: Array.isArray(data) ? data[0] : data });
+      const c = card;
+      const rows = await sql`
+        INSERT INTO cards (
+          name, status, project, machine, material, thickness,
+          part_type, quantity, finish, assigned_to, cad_link, notes,
+          step_file_url, step_file_name, part_id, submitted_by
+        ) VALUES (
+          ${c.name        || ''},
+          ${c.status      || 'Needs Drawing'},
+          ${c.project     || null},
+          ${c.machine     || null},
+          ${c.material    || null},
+          ${c.thickness   || null},
+          ${c.partType    || null},
+          ${c.qty         ? parseInt(c.qty, 10) : null},
+          ${c.finish      || null},
+          ${c.student     || c.assigned_to || null},
+          ${c.cadLink     || c.cad_link    || null},
+          ${c.notes       || null},
+          ${c.stepFileUrl || null},
+          ${c.stepFileName|| null},
+          ${c.partId      || null},
+          ${c.submittedBy || null}
+        )
+        RETURNING *
+      `;
+      return res.json({ ok: true, card: rows[0] });
 
     } else if (action === 'updateCard') {
-      const fields = {};
-      const map = {
-        name:         'name',
-        status:       'status',
-        project:      'project',
-        machine:      'machine',
-        material:     'material',
-        thickness:    'thickness',
-        partType:     'part_type',
-        quantity:     'quantity',
-        finish:       'finish',
-        assigned:     'assigned_to',
-        cadLink:      'cad_link',
-        notes:        'notes',
-        // FIX: these were missing — caused STEP file path to never save on updateCard
-        stepFileId:   'step_file_id',
-        stepFileName: 'step_file_name',
-      };
-      for (const [k, col] of Object.entries(map)) {
-        if (updates?.[k] !== undefined) fields[col] = updates[k] || null;
-      }
-      if (Object.keys(fields).length === 0) return res.json({ ok: true });
-      const { status, data } = await sb('PATCH', `/cards?id=eq.${encodeURIComponent(id)}`, fields);
-      if (status >= 400) return res.status(status).json({ error: data });
+      if (!id) return res.status(400).json({ error: 'Missing id' });
+      const u = updates || {};
+      await sql`
+        UPDATE cards SET
+          name           = COALESCE(${u.name          ?? null}, name),
+          status         = COALESCE(${u.status        ?? null}, status),
+          project        = CASE WHEN ${u.project        !== undefined} THEN ${u.project        ?? null} ELSE project     END,
+          machine        = CASE WHEN ${u.machine        !== undefined} THEN ${u.machine        ?? null} ELSE machine     END,
+          material       = CASE WHEN ${u.material       !== undefined} THEN ${u.material       ?? null} ELSE material    END,
+          thickness      = CASE WHEN ${u.thickness      !== undefined} THEN ${u.thickness      ?? null} ELSE thickness   END,
+          part_type      = CASE WHEN ${u.partType       !== undefined} THEN ${u.partType       ?? null} ELSE part_type   END,
+          quantity       = CASE WHEN ${u.quantity       !== undefined} THEN ${u.quantity       ?? null} ELSE quantity    END,
+          finish         = CASE WHEN ${u.finish         !== undefined} THEN ${u.finish         ?? null} ELSE finish      END,
+          assigned_to    = CASE WHEN ${u.assigned       !== undefined} THEN ${u.assigned       ?? null} ELSE assigned_to END,
+          cad_link       = CASE WHEN ${u.cadLink        !== undefined} THEN ${u.cadLink        ?? null} ELSE cad_link    END,
+          notes          = CASE WHEN ${u.notes          !== undefined} THEN ${u.notes          ?? null} ELSE notes       END,
+          step_file_url  = CASE WHEN ${u.stepFileUrl    !== undefined} THEN ${u.stepFileUrl    ?? null} ELSE step_file_url  END,
+          step_file_name = CASE WHEN ${u.stepFileName   !== undefined} THEN ${u.stepFileName   ?? null} ELSE step_file_name END,
+          updated_at     = NOW()
+        WHERE id = ${id}
+      `;
       return res.json({ ok: true });
 
     } else if (action === 'moveCard') {
-      const { status, data } = await sb('PATCH', `/cards?id=eq.${encodeURIComponent(id)}`, { status: newStatus });
-      if (status >= 400) return res.status(status).json({ error: data });
+      if (!id || !newStatus) return res.status(400).json({ error: 'Missing id or status' });
+      await sql`UPDATE cards SET status = ${newStatus}, updated_at = NOW() WHERE id = ${id}`;
       return res.json({ ok: true });
 
     } else if (action === 'deleteCard') {
-      const { status, data } = await sb('DELETE', `/cards?id=eq.${encodeURIComponent(id)}`);
-      if (status >= 400) return res.status(status).json({ error: data });
+      if (!id) return res.status(400).json({ error: 'Missing id' });
+      const rows = await sql`SELECT step_file_url FROM cards WHERE id = ${id}`;
+      if (rows[0]?.step_file_url) {
+        try { await del(rows[0].step_file_url); } catch (_) {}
+      }
+      await sql`DELETE FROM cards WHERE id = ${id}`;
       return res.json({ ok: true });
 
     } else if (action === 'uploadStep') {
-      // Upload a STEP file to private Supabase Storage bucket 'step-files'
       const { filename, cardId, fileBase64 } = req.body || {};
       if (!filename || !fileBase64) return res.status(400).json({ error: 'Missing filename or fileBase64' });
 
       const fileBuffer = Buffer.from(fileBase64, 'base64');
-      const storagePath = `${cardId || 'unassigned'}/${filename}`;
+      const blobPath = `step-files/${cardId || 'unassigned'}/${filename}`;
 
-      const uploadResp = await fetch(
-        `${SUPABASE_URL}/storage/v1/object/step-files/${storagePath}`, {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-          'Content-Type': 'application/octet-stream',
-          'x-upsert': 'true',
-        },
-        body: fileBuffer,
+      const blob = await put(blobPath, fileBuffer, {
+        access: 'public',
+        contentType: 'application/octet-stream',
+        addRandomSuffix: false,
       });
 
-      if (!uploadResp.ok) {
-        const err = await uploadResp.text();
-        return res.status(uploadResp.status).json({ error: 'Storage upload failed: ' + err });
-      }
-
-      return res.json({ ok: true, path: storagePath });
+      return res.json({ ok: true, url: blob.url });
 
     } else if (action === 'getStepUrl') {
-      // Generate a short-lived signed URL for downloading a private STEP file
-      const { path: filePath } = req.body || {};
-      if (!filePath) return res.status(400).json({ error: 'Missing path' });
-
-      const signResp = await fetch(
-        `${SUPABASE_URL}/storage/v1/object/sign/step-files/${filePath}`, {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ expiresIn: 3600 }),
-      });
-
-      if (!signResp.ok) {
-        const err = await signResp.text();
-        return res.status(signResp.status).json({ error: 'Signed URL failed: ' + err });
-      }
-
-      const signData = await signResp.json();
-      const signedUrl = `${SUPABASE_URL}/storage/v1${signData.signedURL}`;
-      return res.json({ ok: true, url: signedUrl });
+      // Vercel Blob URLs are permanent public URLs — just return what's stored on the card
+      const { url } = req.body || {};
+      if (!url) return res.status(400).json({ error: 'Missing url' });
+      return res.json({ ok: true, url });
 
     } else {
       return res.status(400).json({ error: 'Unknown action: ' + action });
     }
 
   } catch (err) {
+    console.error('[board.js]', err);
     return res.status(500).json({ error: err.message });
   }
 }
