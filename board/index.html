@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Board — FRC 6328 v2.07</title>
+<title>Manufacturing Board — FRC 6328 v2.08</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -961,8 +961,8 @@ function openDetailModal(id) {
 
   document.getElementById('detail-name').textContent = card.name || 'Unnamed Part';
   document.getElementById('detail-submitted').textContent =
-    card.submitted_by ? `Submitted by ${card.submitted_by}${card.created_at ? ' · ' + timeAgo(card.created_at) : ''}` :
-    card.created_at ? timeAgo(card.created_at) : '';
+    card.submitted_by ? `Submitted by ${card.submitted_by}${card.created_at ? ' · ' + new Date(card.created_at).toLocaleString('en-US', {month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}) : ''}` :
+    card.created_at ? new Date(card.created_at).toLocaleString('en-US', {month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}) : '';
 
   const val = (id, v, fallback='—') => {
     const el = document.getElementById(id);
