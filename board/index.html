@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Board — FRC 6328 v1.92</title>
+<title>Manufacturing Board — FRC 6328 v1.93</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -317,6 +317,12 @@ tr:hover .lt-actions{opacity:1;}
       <option>CNC Mill</option><option>CNC Router</option><option>Lathe</option>
       <option>Mill</option><option>3D Printer</option><option>Chop Saw</option><option>Laser Cutter</option>
     </select>
+    <select class="filter-select" id="filter-material" onchange="renderCurrentView()">
+      <option value="">All Materials</option>
+    </select>
+    <select class="filter-select" id="filter-thickness" onchange="renderCurrentView()">
+      <option value="">All Thicknesses</option>
+    </select>
     <select class="filter-select" id="filter-assigned" onchange="renderCurrentView()">
       <option value="">All Assignees</option>
     </select>
@@ -533,7 +539,7 @@ async function loadCards() {
     const d = await apiGet();
     allCards = d.cards || [];
     renderCurrentView();
-    populateAssigneeFilter();
+    populateFilterDropdowns();
   } catch(e) { toast('Failed to load: ' + e.message, 'error'); }
   finally { showLoading(false); }
 }
@@ -543,13 +549,17 @@ function getFiltered() {
   const fp = document.getElementById('filter-project').value;
   const fm = document.getElementById('filter-machine').value;
   const fa = document.getElementById('filter-assigned').value;
+  const fmat = document.getElementById('filter-material').value;
+  const fthk = document.getElementById('filter-thickness').value;
   const fs = document.getElementById('filter-search').value.trim().toLowerCase();
   const filtered = allCards.filter(c =>
-    (!fp || c.project === fp) &&
-    (!fm || c.machine === fm) &&
-    (!fa || c.assigned_to === fa) &&
-    (!fs || c.name.toLowerCase().includes(fs))
-  );
+    (!fp   || c.project    === fp)   &&
+    (!fm   || c.machine    === fm)   &&
+    (!fa   || c.assigned_to === fa)  &&
+    (!fmat || c.material   === fmat) &&
+    (!fthk || c.thickness  === fthk) &&
+    (!fs   || c.name.toLowerCase().includes(fs))
+  ).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   document.getElementById('filter-count').textContent =
     `${filtered.length} of ${allCards.length} card${allCards.length!==1?'s':''}`;
   return filtered;
@@ -754,11 +764,21 @@ function timeAgo(iso) {
   return new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric' });
 }
 
-function populateAssigneeFilter() {
-  const sel = document.getElementById('filter-assigned'), cur = sel.value;
+function populateFilterDropdowns() {
+  const assignSel = document.getElementById('filter-assigned'), curA = assignSel.value;
   const names = [...new Set(allCards.map(c=>c.assigned_to).filter(Boolean))].sort();
-  sel.innerHTML = '<option value="">All Assignees</option>' +
-    names.map(n=>`<option${n===cur?' selected':''}>${esc(n)}</option>`).join('');
+  assignSel.innerHTML = '<option value="">All Assignees</option>' +
+    names.map(n=>`<option${n===curA?' selected':''}>${esc(n)}</option>`).join('');
+
+  const matSel = document.getElementById('filter-material'), curM = matSel.value;
+  const mats = [...new Set(allCards.map(c=>c.material).filter(Boolean))].sort();
+  matSel.innerHTML = '<option value="">All Materials</option>' +
+    mats.map(m=>`<option${m===curM?' selected':''}>${esc(m)}</option>`).join('');
+
+  const thkSel = document.getElementById('filter-thickness'), curT = thkSel.value;
+  const thks = [...new Set(allCards.map(c=>c.thickness).filter(Boolean))].sort();
+  thkSel.innerHTML = '<option value="">All Thicknesses</option>' +
+    thks.map(t=>`<option${t===curT?' selected':''}>${esc(fmtThickness(t))}</option>`).join('');
 }
 
 // ── DRAG & DROP ─────────────────────────────────────────────
@@ -849,7 +869,7 @@ async function saveCard() {
       allCards.unshift(res.card);
       toast('Card created');
     }
-    closeModal(); renderCurrentView(); populateAssigneeFilter();
+    closeModal(); renderCurrentView(); populateFilterDropdowns();
   } catch(e) { toast('Error: '+e.message,'error'); }
   finally { btn.disabled=false; btn.textContent=editingId?'Save Changes':'Create Card'; }
 }
