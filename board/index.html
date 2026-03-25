@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Board — FRC 6328 v2.02</title>
+<title>Manufacturing Board — FRC 6328 v2.03</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -102,7 +102,6 @@ header{background:var(--blue-dk);border-bottom:3px solid var(--gold);padding:10p
 .card-cad a{font-size:.68rem;color:var(--gold);text-decoration:none;}
 .card-cad a:hover{text-decoration:underline;}
 .col-empty{font-size:.7rem;color:var(--muted);text-align:center;padding:16px 8px;border:1px dashed rgba(47,78,148,.4);border-radius:7px;opacity:.6;}
-.card-step{margin-top:6px;padding-top:6px;border-top:1px solid var(--border);}
 .btn-step{font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:rgba(52,211,153,.1);color:#34d399;border:1px solid rgba(52,211,153,.25);border-radius:5px;padding:3px 9px;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px;}
 .btn-step:hover{background:rgba(52,211,153,.2);border-color:rgba(52,211,153,.5);}
 .btn-step:disabled{opacity:.5;cursor:not-allowed;}
@@ -369,7 +368,7 @@ tr:hover .lt-actions{opacity:1;}
         <select id="f-thickness"><option value="">—</option><option>1/16"</option><option>0.09"</option><option>1/8"</option><option>3/16"</option><option>1/4"</option><option>3/8"</option><option>1/2"</option><option>3/4"</option><option>1"</option></select>
       </div>
       <div class="field"><label>Finish</label>
-        <select id="f-finish"><option value="">None</option><option>Powder Coat — Blue</option><option>Powder Coat — Black</option><option>Powder Coat — Yellow</option><option>Anodize</option></select>
+        <select id="f-finish"><option value="">None</option><option>Powder Coat — Blue</option><option>Powder Coat — Black</option><option>Powder Coat — Yellow</option><option>Powder Coat — Pink</option><option>Anodize</option></select>
       </div>
       <div class="field"><label>Quantity</label><input type="number" id="f-qty" min="1" placeholder="1"/></div>
       <div class="field full"><label>Assigned To</label><input type="text" id="f-assigned" placeholder="Student name"/></div>
@@ -623,8 +622,8 @@ function makeCardEl(card) {
   if (card.part_type) tags.push(`<span class="tag tag-parttype">${fmtPartType(card.part_type)}</span>`);
   const _finish = fmtFinish(card.finish);
   if (_finish) {
-    const _fc = card.finish ? card.finish.toLowerCase() : 'other';
-    const _fclass = ['blue','black','yellow','pink'].includes(_fc) ? `tag-finish-${_fc}` : 'tag-finish-other';
+    const _fraw = (card.finish || '').replace('Powder Coat — ', '').toLowerCase();
+    const _fclass = ['blue','black','yellow','pink'].includes(_fraw) ? `tag-finish-${_fraw}` : 'tag-finish-other';
     tags.push(`<span class="tag ${_fclass}">${_finish.replace('Powder Coat — ','PC ')}</span>`);
   }
   const meta = [];
@@ -641,8 +640,8 @@ function makeCardEl(card) {
     ${tags.length?`<div class="card-tags">${tags.join('')}</div>`:''}
     ${meta.length?`<div class="card-meta">${meta.join('')}</div>`:''}
     ${card.notes?`<div class="card-notes">${esc(card.notes.slice(0,80))}${card.notes.length>80?'…':''}</div>`:''}
-    ${card.cad_link?`<div class="card-cad"><a href="${esc(card.cad_link)}" target="_blank" onclick="event.stopPropagation()">↗ Open in OnShape</a></div>`:''}
-    ${(card.step_file_url || card.pdf_file_url) ? `<div class="card-step">
+    ${(card.cad_link || card.step_file_url || card.pdf_file_url) ? `<div class="card-cad" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+      ${card.cad_link?`<a href="${esc(card.cad_link)}" target="_blank" onclick="event.stopPropagation()">↗ Open in OnShape</a>`:''}
       ${card.step_file_url?`<button class="btn-step" onclick="event.stopPropagation();downloadStep(event,'${card.id}','${esc(card.step_file_name||card.step_file_url)}')">⬇ STEP</button>`:''}
       ${card.pdf_file_url?`<button class="btn-pdf" onclick="event.stopPropagation();downloadPdf(event,'${card.id}','${esc(card.pdf_file_name||card.pdf_file_url)}')">⬇ PDF</button>`:''}
     </div>`:''}`;
@@ -725,7 +724,7 @@ function buildListView() {
           : '<span style="color:var(--muted)">—</span>';
 
         const finishDisplay = fmtFinish(card.finish) ? fmtFinish(card.finish).replace('Powder Coat — ', 'PC ') : null;
-          const _ffc = card.finish ? card.finish.toLowerCase() : 'other';
+          const _ffc = (card.finish || '').replace('Powder Coat — ', '').toLowerCase();
           const _ffclass = ['blue','black','yellow','pink'].includes(_ffc) ? `lt-badge lt-badge-finish-${_ffc}` : 'lt-badge lt-badge-finish-other';
 
         const stepHtml = card.step_file_url
