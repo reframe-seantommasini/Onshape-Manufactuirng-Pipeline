@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Board — FRC 6328 v2.00</title>
+<title>Manufacturing Board — FRC 6328 v2.01</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -789,9 +789,9 @@ function populateFilterDropdowns() {
     mats.map(m=>`<option${m===curM?' selected':''}>${esc(m)}</option>`).join('');
 
   const thkSel = document.getElementById('filter-thickness'), curT = thkSel.value;
-  const thks = [...new Set(allCards.map(c=>c.thickness).filter(Boolean))].sort();
+  const thks = [...new Set(allCards.map(c=>fmtThickness(c.thickness)).filter(Boolean))].sort();
   thkSel.innerHTML = '<option value="">All Thicknesses</option>' +
-    thks.map(t=>`<option${t===curT?' selected':''}>${esc(fmtThickness(t))}</option>`).join('');
+    thks.map(t=>`<option value="${esc(t)}"${t===curT?' selected':''}>${esc(t)}</option>`).join('');
 }
 
 // ── DRAG & DROP ─────────────────────────────────────────────
