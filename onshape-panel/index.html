@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Pipeline — FRC 6328 v1.78</title>
+<title>Manufacturing Pipeline — FRC 6328 v1.79</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
   :root {
@@ -151,7 +151,7 @@
     <div class="hdr-divider"></div>
     <span class="hdr-title">Mfg Pipeline</span>
     <span class="doc-badge" id="doc-label">No document</span>
-    <span style="font-size:.6rem;color:var(--muted);margin-left:4px;">v1.78</span>
+    <span style="font-size:.6rem;color:var(--muted);margin-left:4px;">v1.79</span>
   </header>
 
   <div id="selection-banner">
@@ -1428,7 +1428,15 @@ async function uploadStepToBlob(fileData, cardId) {
   // Upload STEP file to Vercel Blob via /api/board proxy
   // Returns the public Blob URL
   const arrayBuffer = await fileData.blob.arrayBuffer();
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+  // Chunk-based base64 — btoa(String.fromCharCode(...largeArray)) stack-overflows
+  // for files >~100KB because you can't spread a large TypedArray into a function call.
+  const bytes = new Uint8Array(arrayBuffer);
+  let binary = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  const base64 = btoa(binary);
   const resp = await fetch('/api/board', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1448,7 +1456,13 @@ async function uploadPdfToBlob(file, cardId) {
   // Upload PDF drawing to Vercel Blob via /api/board proxy
   // Returns the public Blob URL
   const arrayBuffer = await file.arrayBuffer();
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+  const bytes = new Uint8Array(arrayBuffer);
+  let binary = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  const base64 = btoa(binary);
   const resp = await fetch('/api/board', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
