@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Board — FRC 6328 v1.95</title>
+<title>Manufacturing Board — FRC 6328 v1.96</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -101,6 +101,9 @@ header{background:var(--blue-dk);border-bottom:3px solid var(--gold);padding:10p
 .btn-step{font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:rgba(52,211,153,.1);color:#34d399;border:1px solid rgba(52,211,153,.25);border-radius:5px;padding:3px 9px;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px;}
 .btn-step:hover{background:rgba(52,211,153,.2);border-color:rgba(52,211,153,.5);}
 .btn-step:disabled{opacity:.5;cursor:not-allowed;}
+.btn-pdf{font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:rgba(251,191,36,.1);color:#fbbf24;border:1px solid rgba(251,191,36,.25);border-radius:5px;padding:3px 9px;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px;}
+.btn-pdf:hover{background:rgba(251,191,36,.2);border-color:rgba(251,191,36,.5);}
+.btn-pdf:disabled{opacity:.5;cursor:not-allowed;}
 
 /* ── LIST VIEW ─────────────────────────────────────── */
 #board-list{display:none;flex-direction:column;gap:0;padding:16px 20px;}
@@ -415,6 +418,7 @@ tr:hover .lt-actions{opacity:1;}
     <div class="detail-footer">
       <button class="btn-delete" id="detail-btn-delete" onclick="deleteFromDetail()">Delete</button>
       <button class="btn-step" id="detail-btn-step" onclick="downloadStepFromDetail()">⬇ STEP</button>
+      <button class="btn-pdf" id="detail-btn-pdf" onclick="downloadPdfFromDetail()">⬇ PDF</button>
       <button class="btn-cancel" onclick="closeDetailModal()">Close</button>
       <button class="btn-save" onclick="editFromDetail()">✎ Edit</button>
     </div>
@@ -623,7 +627,10 @@ function makeCardEl(card) {
     ${meta.length?`<div class="card-meta">${meta.join('')}</div>`:''}
     ${card.notes?`<div class="card-notes">${esc(card.notes.slice(0,80))}${card.notes.length>80?'…':''}</div>`:''}
     ${card.cad_link?`<div class="card-cad"><a href="${esc(card.cad_link)}" target="_blank" onclick="event.stopPropagation()">↗ Open in OnShape</a></div>`:''}
-    ${card.step_file_url?`<div class="card-step"><button class="btn-step" onclick="event.stopPropagation();downloadStep(event,'${card.id}','${esc(card.step_file_name||card.step_file_url)}')">⬇ STEP</button></div>`:''}`;
+    ${(card.step_file_url || card.pdf_file_url) ? `<div class="card-step">
+      ${card.step_file_url?`<button class="btn-step" onclick="event.stopPropagation();downloadStep(event,'${card.id}','${esc(card.step_file_name||card.step_file_url)}')">⬇ STEP</button>`:''}
+      ${card.pdf_file_url?`<button class="btn-pdf" onclick="event.stopPropagation();downloadPdf(event,'${card.id}','${esc(card.pdf_file_name||card.pdf_file_url)}')">⬇ PDF</button>`:''}
+    </div>`:''}`;
   el.addEventListener('click', e => {
     if (e.target.closest('.card-actions') || e.target.closest('a') || e.target.closest('.btn-step')) return;
     openDetailModal(card.id);
@@ -706,6 +713,12 @@ function buildListView() {
 
         const stepHtml = card.step_file_url
           ? `<button class="lt-step-btn" onclick="downloadStep(event,'${card.id}','${esc(card.step_file_name||card.step_file_url)}')">⬇ STEP</button>`
+          : '';
+        const pdfHtml = card.pdf_file_url
+          ? `<button class="btn-pdf" style="font-size:.65rem;padding:2px 7px;" onclick="downloadPdf(event,'${card.id}','${esc(card.pdf_file_name||card.pdf_file_url)}')">⬇ PDF</button>`
+          : '';
+        const filesHtml = (stepHtml || pdfHtml)
+          ? `<div style="display:flex;gap:4px;align-items:center;">${stepHtml}${pdfHtml}</div>`
           : '<span style="color:var(--muted)">—</span>';
 
         const cadHtml = card.cad_link
@@ -724,7 +737,7 @@ function buildListView() {
           <td><span class="lt-assignee">${card.assigned_to ? esc(card.assigned_to) : '—'}</span></td>
           <td>${card.notes ? `<span class="lt-notes" title="${esc(card.notes)}">${esc(card.notes)}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
           <td>${cadHtml}</td>
-          <td>${stepHtml}</td>
+          <td>${filesHtml}</td>
           <td>${card.created_at ? `<span class="lt-date">${timeAgo(card.created_at)}</span>` : '—'}</td>
           <td>
             <div class="lt-actions">
@@ -887,14 +900,28 @@ async function downloadStep(e, cardId, filename) {
   btn.disabled = true; btn.textContent = '⏳';
   try {
     const card = allCards.find(c => c.id === cardId);
-    if (!card?.step_file_id) throw new Error('No STEP file on this card');
-    const res = await apiPost({ action: 'getStepUrl', path: card.step_file_url });
+    if (!card?.step_file_url) throw new Error('No STEP file on this card');
     const a = document.createElement('a');
-    a.href = res.url; a.download = filename || 'part.step'; a.target = '_blank';
+    a.href = card.step_file_url; a.download = filename || 'part.step'; a.target = '_blank';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     toast('Downloading ' + (filename || 'part.step'));
   } catch(err) { toast('Download failed: ' + err.message, 'error'); }
   finally { btn.disabled = false; btn.textContent = '⬇ STEP'; }
+}
+
+// ── PDF DOWNLOAD ─────────────────────────────────────────────
+async function downloadPdf(e, cardId, filename) {
+  const btn = e.target;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const card = allCards.find(c => c.id === cardId);
+    if (!card?.pdf_file_url) throw new Error('No PDF file on this card');
+    const a = document.createElement('a');
+    a.href = card.pdf_file_url; a.download = filename || 'drawing.pdf'; a.target = '_blank';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    toast('Downloading ' + (filename || 'drawing.pdf'));
+  } catch(err) { toast('Download failed: ' + err.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = '⬇ PDF'; }
 }
 
 // ── DETAIL MODAL ─────────────────────────────────────────────
@@ -957,6 +984,12 @@ function openDetailModal(id) {
   stepBtn.textContent = '⬇ STEP';
   stepBtn.disabled = false;
 
+  // PDF button
+  const pdfBtn = document.getElementById('detail-btn-pdf');
+  pdfBtn.style.display = card.pdf_file_url ? 'inline-flex' : 'none';
+  pdfBtn.textContent = '⬇ PDF';
+  pdfBtn.disabled = false;
+
   document.getElementById('detail-backdrop').classList.add('open');
 }
 
@@ -973,13 +1006,28 @@ async function downloadStepFromDetail() {
   const btn = document.getElementById('detail-btn-step');
   btn.disabled = true; btn.textContent = '⏳';
   try {
-    const res = await apiPost({ action: 'getStepUrl', path: card.step_file_url });
+    if (!card.step_file_url) throw new Error('No STEP file on this card');
     const a = document.createElement('a');
-    a.href = res.url; a.download = card.step_file_name || 'part.step'; a.target = '_blank';
+    a.href = card.step_file_url; a.download = card.step_file_name || 'part.step'; a.target = '_blank';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     toast('Downloading ' + (card.step_file_name || 'part.step'));
   } catch(err) { toast('Download failed: ' + err.message, 'error'); }
   finally { btn.disabled = false; btn.textContent = '⬇ STEP'; }
+}
+
+async function downloadPdfFromDetail() {
+  const card = allCards.find(c => c.id === detailCardId);
+  if (!card) return;
+  const btn = document.getElementById('detail-btn-pdf');
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    if (!card.pdf_file_url) throw new Error('No PDF file on this card');
+    const a = document.createElement('a');
+    a.href = card.pdf_file_url; a.download = card.pdf_file_name || 'drawing.pdf'; a.target = '_blank';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    toast('Downloading ' + (card.pdf_file_name || 'drawing.pdf'));
+  } catch(err) { toast('Download failed: ' + err.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = '⬇ PDF'; }
 }
 
 // ── UTILS ───────────────────────────────────────────────────
