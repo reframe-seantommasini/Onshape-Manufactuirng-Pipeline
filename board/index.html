@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Board — FRC 6328 v2.03</title>
+<title>Manufacturing Board — FRC 6328 v2.04</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -642,6 +642,7 @@ function makeCardEl(card) {
     ${card.notes?`<div class="card-notes">${esc(card.notes.slice(0,80))}${card.notes.length>80?'…':''}</div>`:''}
     ${(card.cad_link || card.step_file_url || card.pdf_file_url) ? `<div class="card-cad" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
       ${card.cad_link?`<a href="${esc(card.cad_link)}" target="_blank" onclick="event.stopPropagation()">↗ Open in OnShape</a>`:''}
+      <span style="flex:1;"></span>
       ${card.step_file_url?`<button class="btn-step" onclick="event.stopPropagation();downloadStep(event,'${card.id}','${esc(card.step_file_name||card.step_file_url)}')">⬇ STEP</button>`:''}
       ${card.pdf_file_url?`<button class="btn-pdf" onclick="event.stopPropagation();downloadPdf(event,'${card.id}','${esc(card.pdf_file_name||card.pdf_file_url)}')">⬇ PDF</button>`:''}
     </div>`:''}`;
