@@ -40,7 +40,8 @@ export default async function handler(req, res) {
         INSERT INTO cards (
           name, status, project, machine, material, thickness,
           part_type, quantity, finish, assigned_to, cad_link, notes,
-          step_file_url, step_file_name, part_id, submitted_by
+          step_file_url, step_file_name, pdf_file_url, pdf_file_name,
+          part_id, submitted_by
         ) VALUES (
           ${c.name        || ''},
           ${c.status      || 'Needs Drawing'},
@@ -54,8 +55,10 @@ export default async function handler(req, res) {
           ${c.student     || c.assigned_to || null},
           ${c.cadLink     || c.cad_link    || null},
           ${c.notes       || null},
-          ${c.stepFileUrl || null},
-          ${c.stepFileName|| null},
+          ${c.stepFileUrl  || null},
+          ${c.stepFileName || null},
+          ${c.pdfFileUrl   || null},
+          ${c.pdfFileName  || null},
           ${c.partId      || null},
           ${c.submittedBy || null}
         )
@@ -82,6 +85,8 @@ export default async function handler(req, res) {
           notes          = CASE WHEN ${u.notes          !== undefined} THEN ${u.notes          ?? null} ELSE notes       END,
           step_file_url  = CASE WHEN ${u.stepFileUrl    !== undefined} THEN ${u.stepFileUrl    ?? null} ELSE step_file_url  END,
           step_file_name = CASE WHEN ${u.stepFileName   !== undefined} THEN ${u.stepFileName   ?? null} ELSE step_file_name END,
+          pdf_file_url   = CASE WHEN ${u.pdfFileUrl     !== undefined} THEN ${u.pdfFileUrl     ?? null} ELSE pdf_file_url   END,
+          pdf_file_name  = CASE WHEN ${u.pdfFileName    !== undefined} THEN ${u.pdfFileName    ?? null} ELSE pdf_file_name  END,
           updated_at     = NOW()
         WHERE id = ${id}
       `;
@@ -94,9 +99,12 @@ export default async function handler(req, res) {
 
     } else if (action === 'deleteCard') {
       if (!id) return res.status(400).json({ error: 'Missing id' });
-      const rows = await sql`SELECT step_file_url FROM cards WHERE id = ${id}`;
+      const rows = await sql`SELECT step_file_url, pdf_file_url FROM cards WHERE id = ${id}`;
       if (rows[0]?.step_file_url) {
         try { await del(rows[0].step_file_url); } catch (_) {}
+      }
+      if (rows[0]?.pdf_file_url) {
+        try { await del(rows[0].pdf_file_url); } catch (_) {}
       }
       await sql`DELETE FROM cards WHERE id = ${id}`;
       return res.json({ ok: true });
@@ -111,6 +119,21 @@ export default async function handler(req, res) {
       const blob = await put(blobPath, fileBuffer, {
         access: 'public',
         contentType: 'application/octet-stream',
+        addRandomSuffix: false,
+      });
+
+      return res.json({ ok: true, url: blob.url });
+
+    } else if (action === 'uploadPdf') {
+      const { filename, cardId, fileBase64 } = req.body || {};
+      if (!filename || !fileBase64) return res.status(400).json({ error: 'Missing filename or fileBase64' });
+
+      const fileBuffer = Buffer.from(fileBase64, 'base64');
+      const blobPath = `pdf-files/${cardId || 'unassigned'}/${filename}`;
+
+      const blob = await put(blobPath, fileBuffer, {
+        access: 'public',
+        contentType: 'application/pdf',
         addRandomSuffix: false,
       });
 
