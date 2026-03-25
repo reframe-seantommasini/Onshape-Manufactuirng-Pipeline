@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Board — FRC 6328 v1.94</title>
+<title>Manufacturing Board — FRC 6328 v1.95</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -605,9 +605,9 @@ function makeCardEl(card) {
   const tags = [];
   if (card.project)  tags.push(`<span class="tag tag-project">${card.project}</span>`);
   if (card.machine)  tags.push(`<span class="tag tag-machine">${card.machine}</span>`);
-  if (card.part_type) tags.push(`<span class="tag tag-parttype">${card.part_type}</span>`);
-  if (card.finish && card.finish !== 'None' && card.finish !== '')
-    tags.push(`<span class="tag tag-finish">${card.finish.replace('Powder Coat — ','PC ')}</span>`);
+  if (card.part_type) tags.push(`<span class="tag tag-parttype">${fmtPartType(card.part_type)}</span>`);
+  const _finish = fmtFinish(card.finish);
+  if (_finish) tags.push(`<span class="tag tag-finish">${_finish.replace('Powder Coat — ','PC ')}</span>`);
   const meta = [];
   const mat = [card.material, fmtThickness(card.thickness)].filter(Boolean).join(' · ');
   if (mat) meta.push(`<div class="card-meta-row"><strong>${mat}</strong></div>`);
@@ -702,8 +702,7 @@ function buildListView() {
           ? `<span class="lt-badge ${cls}">${esc(val)}</span>`
           : '<span style="color:var(--muted)">—</span>';
 
-        const finishDisplay = card.finish && card.finish !== 'None' && card.finish !== ''
-          ? card.finish.replace('Powder Coat — ', 'PC ') : null;
+        const finishDisplay = fmtFinish(card.finish) ? fmtFinish(card.finish).replace('Powder Coat — ', 'PC ') : null;
 
         const stepHtml = card.step_file_url
           ? `<button class="lt-step-btn" onclick="downloadStep(event,'${card.id}','${esc(card.step_file_name||card.step_file_url)}')">⬇ STEP</button>`
@@ -717,7 +716,7 @@ function buildListView() {
           <td><div class="lt-name">${esc(card.name)}</div></td>
           <td>${badge(card.project, 'lt-badge-project')}</td>
           <td>${badge(card.machine, 'lt-badge-machine')}</td>
-          <td>${badge(card.part_type, 'lt-badge-parttype')}</td>
+          <td>${badge(fmtPartType(card.part_type), 'lt-badge-parttype')}</td>
           <td>${matHtml}</td>
           <td>${fmtThickness(card.thickness) ? `<span class="lt-mat-thick">${esc(fmtThickness(card.thickness))}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
           <td>${finishDisplay ? `<span class="lt-badge lt-badge-finish">${esc(finishDisplay)}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
@@ -923,10 +922,10 @@ function openDetailModal(id) {
   };
   val('detail-project',  card.project);
   val('detail-machine',  card.machine);
-  val('detail-parttype', card.part_type);
+  val('detail-parttype', fmtPartType(card.part_type));
   val('detail-material', card.material);
   val('detail-thickness', fmtThickness(card.thickness));
-  val('detail-finish',   card.finish && card.finish !== 'None' ? card.finish : null);
+  val('detail-finish',   fmtFinish(card.finish));
   val('detail-qty',      card.quantity ? `${card.quantity}` : null);
   val('detail-assigned', card.assigned_to);
 
@@ -988,6 +987,18 @@ async function downloadStepFromDetail() {
 function fmtThickness(t) {
   if (!t) return null;
   return t.replace(/\s*in$/i, '"');
+}
+// Normalize finish: "Blue" → "Powder Coat — Blue" for powder coat colors
+const PC_COLORS = new Set(['Blue','Black','Yellow','Pink']);
+function fmtFinish(f) {
+  if (!f || f === 'None') return null;
+  if (PC_COLORS.has(f)) return 'Powder Coat — ' + f;
+  return f;
+}
+// Normalize part type: "Tube 1×1in" / "Tube 1x1in" → "Tube 1×1\""
+function fmtPartType(p) {
+  if (!p) return null;
+  return p.replace(/[xX×](\d)/g, '×$1').replace(/in$/i, '"');
 }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function showLoading(on) { document.getElementById('loading').classList.toggle('show',on); }
