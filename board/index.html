@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Board — FRC 6328 v1.93</title>
+<title>Manufacturing Board — FRC 6328 v1.94</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -623,7 +623,7 @@ function makeCardEl(card) {
     ${meta.length?`<div class="card-meta">${meta.join('')}</div>`:''}
     ${card.notes?`<div class="card-notes">${esc(card.notes.slice(0,80))}${card.notes.length>80?'…':''}</div>`:''}
     ${card.cad_link?`<div class="card-cad"><a href="${esc(card.cad_link)}" target="_blank" onclick="event.stopPropagation()">↗ Open in OnShape</a></div>`:''}
-    ${card.step_file_id?`<div class="card-step"><button class="btn-step" onclick="event.stopPropagation();downloadStep(event,'${card.id}','${esc(card.step_file_name||card.step_file_id)}')">⬇ STEP</button></div>`:''}`;
+    ${card.step_file_url?`<div class="card-step"><button class="btn-step" onclick="event.stopPropagation();downloadStep(event,'${card.id}','${esc(card.step_file_name||card.step_file_url)}')">⬇ STEP</button></div>`:''}`;
   el.addEventListener('click', e => {
     if (e.target.closest('.card-actions') || e.target.closest('a') || e.target.closest('.btn-step')) return;
     openDetailModal(card.id);
@@ -705,8 +705,8 @@ function buildListView() {
         const finishDisplay = card.finish && card.finish !== 'None' && card.finish !== ''
           ? card.finish.replace('Powder Coat — ', 'PC ') : null;
 
-        const stepHtml = card.step_file_id
-          ? `<button class="lt-step-btn" onclick="downloadStep(event,'${card.id}','${esc(card.step_file_name||card.step_file_id)}')">⬇ STEP</button>`
+        const stepHtml = card.step_file_url
+          ? `<button class="lt-step-btn" onclick="downloadStep(event,'${card.id}','${esc(card.step_file_name||card.step_file_url)}')">⬇ STEP</button>`
           : '<span style="color:var(--muted)">—</span>';
 
         const cadHtml = card.cad_link
@@ -889,7 +889,7 @@ async function downloadStep(e, cardId, filename) {
   try {
     const card = allCards.find(c => c.id === cardId);
     if (!card?.step_file_id) throw new Error('No STEP file on this card');
-    const res = await apiPost({ action: 'getStepUrl', path: card.step_file_id });
+    const res = await apiPost({ action: 'getStepUrl', path: card.step_file_url });
     const a = document.createElement('a');
     a.href = res.url; a.download = filename || 'part.step'; a.target = '_blank';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
@@ -954,7 +954,7 @@ function openDetailModal(id) {
 
   // STEP button
   const stepBtn = document.getElementById('detail-btn-step');
-  stepBtn.style.display = card.step_file_id ? 'inline-flex' : 'none';
+  stepBtn.style.display = card.step_file_url ? 'inline-flex' : 'none';
   stepBtn.textContent = '⬇ STEP';
   stepBtn.disabled = false;
 
@@ -974,7 +974,7 @@ async function downloadStepFromDetail() {
   const btn = document.getElementById('detail-btn-step');
   btn.disabled = true; btn.textContent = '⏳';
   try {
-    const res = await apiPost({ action: 'getStepUrl', path: card.step_file_id });
+    const res = await apiPost({ action: 'getStepUrl', path: card.step_file_url });
     const a = document.createElement('a');
     a.href = res.url; a.download = card.step_file_name || 'part.step'; a.target = '_blank';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
