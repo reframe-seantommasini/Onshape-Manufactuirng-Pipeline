@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Board — FRC 6328 v2.08</title>
+<title>Manufacturing Board — FRC 6328 v2.09</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -63,17 +63,19 @@ header{background:var(--blue-dk);border-bottom:3px solid var(--gold);padding:10p
 .filter-search-wrap::before{content:'⌕';position:absolute;left:8px;color:var(--muted);font-size:.9rem;pointer-events:none;}
 
 /* ── KANBAN ────────────────────────────────────────── */
-#board-kanban{flex:1;overflow-x:auto;overflow-y:auto;display:flex;gap:10px;padding:16px 20px;align-items:flex-start;min-height:0;}
+#board-kanban{flex:1;overflow-x:auto;overflow-y:hidden;display:flex;gap:10px;padding:16px 20px;align-items:stretch;min-height:0;}
 #board-kanban::-webkit-scrollbar{height:5px;width:4px;}
 #board-kanban::-webkit-scrollbar-track{background:transparent;}
 #board-kanban::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px;}
 #board-kanban::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.18);}
-.col{flex-shrink:0;width:230px;display:flex;flex-direction:column;gap:8px;}
-.col-head{display:flex;align-items:center;gap:7px;background:var(--col-bg);border:1px solid var(--border);border-radius:8px;padding:7px 10px;}
+.col{flex-shrink:0;width:230px;display:flex;flex-direction:column;gap:0;max-height:100%;overflow-y:auto;border-radius:8px;}
+.col::-webkit-scrollbar{width:3px;}
+.col::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px;}
+.col-head{display:flex;align-items:center;gap:7px;background:var(--col-bg);border:1px solid var(--border);border-radius:8px 8px 0 0;padding:7px 10px;position:sticky;top:0;z-index:2;}
 .col-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 .col-name{font-family:'Barlow Condensed',sans-serif;font-size:.75rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--cream);flex:1;}
 .col-count{font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;color:var(--muted);background:var(--navy);padding:1px 6px;border-radius:99px;border:1px solid var(--border);}
-.col-cards{display:flex;flex-direction:column;gap:7px;min-height:48px;border-radius:8px;padding:3px;transition:background .15s;}
+.col-cards{display:flex;flex-direction:column;gap:7px;min-height:48px;border-radius:0 0 8px 8px;border:1px solid var(--border);border-top:none;padding:6px;transition:background .15s;}
 .col-cards.drag-over{background:rgba(68,108,227,0.1);outline:1px dashed rgba(68,108,227,0.4);outline-offset:-3px;}
 .card{background:var(--card-bg);border:1px solid var(--border);border-radius:9px;padding:10px 11px;cursor:grab;position:relative;transition:border-color .15s,box-shadow .15s,transform .1s;}
 .card:hover{border-color:rgba(68,108,227,0.7);box-shadow:0 4px 14px rgba(0,0,0,0.35);}
@@ -896,7 +898,8 @@ async function saveCard() {
         name:updates.name, status:updates.status, project:updates.project,
         machine:updates.machine, part_type:updates.partType, material:updates.material,
         thickness:updates.thickness, finish:updates.finish, quantity:updates.quantity,
-        assigned_to:updates.assigned, cad_link:updates.cadLink, notes:updates.notes };
+        assigned_to:updates.assigned, cad_link:updates.cadLink, notes:updates.notes,
+        submitted_by:allCards[idx].submitted_by, created_at:allCards[idx].created_at };
       toast('Card updated');
     } else {
       const res = await apiPost({ action:'createCard', card:{ ...updates, submittedBy:userEmail } });
