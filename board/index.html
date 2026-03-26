@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Board — FRC 6328 v2.11</title>
+<title>Manufacturing Board — FRC 6328 v2.12</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -552,6 +552,24 @@ async function loadCards() {
   } catch(e) { toast('Failed to load: ' + e.message, 'error'); }
   finally { showLoading(false); }
 }
+
+// Silent background poll — only re-renders if something actually changed
+async function pollCards() {
+  try {
+    const d = await apiGet();
+    const fresh = d.cards || [];
+    const changed =
+      fresh.length !== allCards.length ||
+      fresh[0]?.updated_at !== allCards[0]?.updated_at ||
+      fresh[0]?.id !== allCards[0]?.id;
+    if (changed) {
+      allCards = fresh;
+      renderCurrentView();
+      populateFilterDropdowns();
+    }
+  } catch(_) { /* silent — don't toast on background poll failures */ }
+}
+setInterval(pollCards, 30000);
 
 // ── FILTER HELPER ────────────────────────────────────────────
 function getFiltered() {
