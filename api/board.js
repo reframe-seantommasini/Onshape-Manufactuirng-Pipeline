@@ -41,7 +41,7 @@ export default async function handler(req, res) {
           name, status, project, machine, material, thickness,
           part_type, quantity, finish, assigned_to, cad_link, notes,
           step_file_url, step_file_name, pdf_file_url, pdf_file_name,
-          part_id, submitted_by
+          part_id, submitted_by, is_critical
         ) VALUES (
           ${c.name        || ''},
           ${c.status      || 'Needs Drawing'},
@@ -60,7 +60,8 @@ export default async function handler(req, res) {
           ${c.pdfFileUrl   || null},
           ${c.pdfFileName  || null},
           ${c.partId      || null},
-          ${c.submittedBy || c.student || null}
+          ${c.submittedBy || c.student || null},
+          ${c.isCritical  ? true : false}
         )
         RETURNING *
       `;
@@ -87,6 +88,7 @@ export default async function handler(req, res) {
           step_file_name = CASE WHEN ${u.stepFileName   !== undefined} THEN ${u.stepFileName   ?? null} ELSE step_file_name END,
           pdf_file_url   = CASE WHEN ${u.pdfFileUrl     !== undefined} THEN ${u.pdfFileUrl     ?? null} ELSE pdf_file_url   END,
           pdf_file_name  = CASE WHEN ${u.pdfFileName    !== undefined} THEN ${u.pdfFileName    ?? null} ELSE pdf_file_name  END,
+          is_critical    = CASE WHEN ${u.isCritical     !== undefined} THEN ${u.isCritical     ?? false} ELSE is_critical   END,
           updated_at     = NOW()
         WHERE id = ${id}
       `;
