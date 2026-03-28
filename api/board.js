@@ -70,6 +70,10 @@ export default async function handler(req, res) {
     } else if (action === 'updateCard') {
       if (!id) return res.status(400).json({ error: 'Missing id' });
       const u = updates || {};
+      // Coerce quantity: empty string → null, otherwise parse as integer
+      const qty = u.quantity === undefined ? undefined
+                : (u.quantity === '' || u.quantity === null) ? null
+                : parseInt(u.quantity, 10);
       await sql`
         UPDATE cards SET
           name           = COALESCE(${u.name          ?? null}, name),
@@ -79,7 +83,7 @@ export default async function handler(req, res) {
           material       = CASE WHEN ${u.material       !== undefined} THEN ${u.material       ?? null} ELSE material    END,
           thickness      = CASE WHEN ${u.thickness      !== undefined} THEN ${u.thickness      ?? null} ELSE thickness   END,
           part_type      = CASE WHEN ${u.partType       !== undefined} THEN ${u.partType       ?? null} ELSE part_type   END,
-          quantity       = CASE WHEN ${u.quantity       !== undefined} THEN ${u.quantity       ?? null} ELSE quantity    END,
+          quantity       = CASE WHEN ${qty              !== undefined} THEN ${qty              ?? null} ELSE quantity    END,
           finish         = CASE WHEN ${u.finish         !== undefined} THEN ${u.finish         ?? null} ELSE finish      END,
           assigned_to    = CASE WHEN ${u.assigned       !== undefined} THEN ${u.assigned       ?? null} ELSE assigned_to END,
           cad_link       = CASE WHEN ${u.cadLink        !== undefined} THEN ${u.cadLink        ?? null} ELSE cad_link    END,
