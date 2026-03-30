@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Board — FRC 6328 v2.13</title>
+<title>Manufacturing Board — FRC 6328 v2.14</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -365,7 +365,7 @@ tr:hover .lt-actions{opacity:1;}
         <select id="f-machine"><option value="">—</option><option>CNC Mill</option><option>CNC Router</option><option>Lathe</option><option>Mill</option><option>3D Printer</option><option>Chop Saw</option><option>Laser Cutter</option></select>
       </div>
       <div class="field"><label>Part Type</label>
-        <select id="f-parttype"><option value="">—</option><option>Plate</option><option>Hex Shaft</option><option>Round Shaft</option><option>Tube 1x1in</option><option>Tube 1x2in</option><option>Tube 2x2in</option><option>Billet</option><option>Other</option></select>
+        <select id="f-parttype"><option value="">—</option><option>Plate</option><option>Sheet Metal</option><option>Hex Shaft</option><option>Round Shaft</option><option>Tube 1x1in</option><option>Tube 1x2in</option><option>Tube 2x2in</option><option>Billet</option><option>Other</option></select>
       </div>
       <div class="field"><label>Material</label>
         <select id="f-material"><option value="">—</option><option>Aluminum</option><option>Steel</option><option>SRPP</option><option>Polycarbonate</option><option>PLA+</option><option>Nylon CF</option><option>Nylon GF</option></select>
@@ -687,7 +687,7 @@ function makeCardEl(card) {
     ${(card.cad_link || card.step_file_url || card.pdf_file_url) ? `<div class="card-cad" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
       ${card.cad_link?`<a href="${esc(card.cad_link)}" target="_blank" onclick="event.stopPropagation()">↗ Open in OnShape</a>`:''}
       <span style="flex:1;"></span>
-      ${card.step_file_url?`<button class="btn-step" onclick="event.stopPropagation();downloadStep(event,'${card.id}','${esc(card.step_file_name||card.step_file_url)}')">⬇ STEP</button>`:''}
+      ${card.step_file_url?`<button class="btn-step" onclick="event.stopPropagation();downloadStep(event,'${card.id}','${esc(card.step_file_name||card.step_file_url)}')">⬇ ${(card.step_file_name||'').toLowerCase().endsWith('.dxf')?'DXF':'STEP'}</button>`:''}
       ${card.pdf_file_url?`<button class="btn-pdf" onclick="event.stopPropagation();downloadPdf(event,'${card.id}','${esc(card.pdf_file_name||card.pdf_file_url)}')">⬇ PDF</button>`:''}
     </div>`:''}`;
   el.addEventListener('click', e => {
@@ -775,7 +775,7 @@ function buildListView() {
           const _ffBadge = finishDisplay ? `<span class="lt-badge lt-badge-finish" style="display:inline-flex;align-items:center;gap:5px;">${_fDot}${esc(finishDisplay)}</span>` : '<span style="color:var(--muted)">—</span>';
 
         const stepHtml = card.step_file_url
-          ? `<button class="lt-step-btn" onclick="downloadStep(event,'${card.id}','${esc(card.step_file_name||card.step_file_url)}')">⬇ STEP</button>`
+          ? `<button class="lt-step-btn" onclick="downloadStep(event,'${card.id}','${esc(card.step_file_name||card.step_file_url)}')">⬇ ${(card.step_file_name||'').toLowerCase().endsWith('.dxf')?'DXF':'STEP'}</button>`
           : '';
         const pdfHtml = card.pdf_file_url
           ? `<button class="btn-pdf" style="font-size:.65rem;padding:2px 7px;" onclick="downloadPdf(event,'${card.id}','${esc(card.pdf_file_name||card.pdf_file_url)}')">⬇ PDF</button>`
@@ -964,19 +964,21 @@ async function confirmDelete(id, fromModal=false) {
   catch(e) { toast('Delete failed: '+e.message,'error'); loadCards(); }
 }
 
-// ── STEP DOWNLOAD ───────────────────────────────────────────
+// ── STEP / DXF DOWNLOAD ─────────────────────────────────────────────────────
 async function downloadStep(e, cardId, filename) {
   const btn = e.target;
   btn.disabled = true; btn.textContent = '⏳';
+  const isDxf = (filename||'').toLowerCase().endsWith('.dxf');
   try {
     const card = allCards.find(c => c.id === cardId);
-    if (!card?.step_file_url) throw new Error('No STEP file on this card');
+    if (!card?.step_file_url) throw new Error('No file on this card');
     const a = document.createElement('a');
-    a.href = card.step_file_url; a.download = filename || 'part.step'; a.target = '_blank';
+    const fallback = isDxf ? 'part.dxf' : 'part.step';
+    a.href = card.step_file_url; a.download = filename || fallback; a.target = '_blank';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    toast('Downloading ' + (filename || 'part.step'));
+    toast('Downloading ' + (filename || fallback));
   } catch(err) { toast('Download failed: ' + err.message, 'error'); }
-  finally { btn.disabled = false; btn.textContent = '⬇ STEP'; }
+  finally { btn.disabled = false; btn.textContent = '⬇ ' + (isDxf ? 'DXF' : 'STEP'); }
 }
 
 // ── PDF DOWNLOAD ─────────────────────────────────────────────
@@ -1051,7 +1053,7 @@ function openDetailModal(id) {
   // STEP button
   const stepBtn = document.getElementById('detail-btn-step');
   stepBtn.style.display = card.step_file_url ? 'inline-flex' : 'none';
-  stepBtn.textContent = '⬇ STEP';
+  stepBtn.textContent = '⬇ ' + ((card.step_file_name||'').toLowerCase().endsWith('.dxf') ? 'DXF' : 'STEP');
   stepBtn.disabled = false;
 
   // PDF button
@@ -1075,14 +1077,16 @@ async function downloadStepFromDetail() {
   if (!card) return;
   const btn = document.getElementById('detail-btn-step');
   btn.disabled = true; btn.textContent = '⏳';
+  const isDxf = (card.step_file_name||'').toLowerCase().endsWith('.dxf');
   try {
-    if (!card.step_file_url) throw new Error('No STEP file on this card');
+    if (!card.step_file_url) throw new Error('No file on this card');
     const a = document.createElement('a');
-    a.href = card.step_file_url; a.download = card.step_file_name || 'part.step'; a.target = '_blank';
+    const fallback = isDxf ? 'part.dxf' : 'part.step';
+    a.href = card.step_file_url; a.download = card.step_file_name || fallback; a.target = '_blank';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    toast('Downloading ' + (card.step_file_name || 'part.step'));
+    toast('Downloading ' + (card.step_file_name || fallback));
   } catch(err) { toast('Download failed: ' + err.message, 'error'); }
-  finally { btn.disabled = false; btn.textContent = '⬇ STEP'; }
+  finally { btn.disabled = false; btn.textContent = '⬇ ' + (isDxf ? 'DXF' : 'STEP'); }
 }
 
 async function downloadPdfFromDetail() {
