@@ -1597,10 +1597,13 @@ async function submitPart(){
       }
       const cardId = cardResult?.card?.id || null;
 
-      // 2. Export + upload DXF (Laser Cutter) or STEP (other CAM statuses)
+      // 2. Export + upload DXF or STEP
+      // DXF export via OnShape API is not yet reliably supported for either sheet metal
+      // or regular plates — disabled until a working approach is found.
+      // Sheet metal parts will need DXF attached manually for now.
       const isLaser   = getPillVal('machine') === DXF_MACHINE;
       const needsStep = STEP_STATUSES.has(status);
-      const needsDxf  = isLaser; // Laser Cutter always exports DXF regardless of status
+      const needsDxf  = false; // disabled
 
       if (needsDxf && cardId) {
         btn.innerHTML='<span class="spinner"></span> Exporting DXF...';
