@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Board — FRC 6328 v2.14</title>
+<title>Manufacturing Board — FRC 6328 v2.15</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -147,6 +147,8 @@ header{background:var(--blue-dk);border-bottom:3px solid var(--gold);padding:10p
 .list-table tr:last-child td{border-bottom:none;}
 .list-table tr:hover td{background:rgba(68,108,227,0.06);cursor:pointer;}
 .list-table tr.list-row-empty td{color:var(--muted);font-style:italic;text-align:center;padding:16px;}
+.list-table tr.is-critical td:first-child{border-left:3px solid #e24b4a;}
+.lt-critical-badge{display:inline-flex;align-items:center;gap:3px;background:#e24b4a;color:#fff;font-size:.58rem;font-weight:700;font-family:'Barlow Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;padding:1px 5px;border-radius:3px;vertical-align:middle;margin-left:5px;}
 
 .lt-name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.88rem;color:var(--cream);letter-spacing:.02em;}
 .lt-name-sub{font-size:.68rem;color:var(--muted);margin-top:1px;}
@@ -754,6 +756,7 @@ function buildListView() {
     } else {
       cards.forEach(card => {
         const tr = document.createElement('tr');
+        if (card.is_critical) tr.classList.add('is-critical');
         tr.addEventListener('click', (e) => {
           if (e.target.closest('button') || e.target.closest('a')) return;
           openDetailModal(card.id);
@@ -789,7 +792,7 @@ function buildListView() {
           : '<span style="color:var(--muted)">—</span>';
 
         tr.innerHTML = `
-          <td><div class="lt-name">${esc(card.name)}</div></td>
+          <td><div class="lt-name">${esc(card.name)}${card.is_critical ? '<span class="lt-critical-badge">⚑ Critical</span>' : ''}</div></td>
           <td>${badge(card.project, 'lt-badge-project')}</td>
           <td>${badge(card.machine, 'lt-badge-machine')}</td>
           <td>${badge(fmtPartType(card.part_type), 'lt-badge-parttype')}</td>
