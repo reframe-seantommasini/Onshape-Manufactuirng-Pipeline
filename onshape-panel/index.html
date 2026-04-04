@@ -1399,7 +1399,7 @@ async function fetchPartThumbnail(part) {
   }
   try {
     const path = `/partstudios/d/${docId}/${wvmType}/${wvmId}/e/${part.studio}/shadedviews`
-      + `?partId=${encodeURIComponent(part.id)}&outputHeight=220&outputWidth=440&pixelSize=0`
+      + `?partIds=${encodeURIComponent(part.id)}&outputHeight=220&outputWidth=440&pixelSize=0`
       + `&viewMatrix=0.612,0.354,-0.707,0,-0.5,0.866,0,0,0.612,0.354,0.707,0`;
     const resp = await fetch(`/api/onshape?path=${encodeURIComponent(path)}`);
     if (!resp.ok) { wrap.style.display = 'none'; return; }
