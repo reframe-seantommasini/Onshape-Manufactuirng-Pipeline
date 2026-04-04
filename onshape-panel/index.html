@@ -1406,6 +1406,7 @@ async function fetchPartThumbnail(part) {
     const data = await resp.json();
     const b64 = data?.images?.[0];
     if (!b64) { wrap.style.display = 'none'; return; }
+    part._thumbnailB64 = b64; // store for upload at submission time
     wrap.innerHTML = `<img src="data:image/png;base64,${b64}" alt="${part.name} preview"/>`;
   } catch(e) {
     if (wrap) wrap.style.display = 'none';
@@ -1726,7 +1727,38 @@ async function submitPart(){
           showToast(`⚠️ PDF upload failed for "${name}": ${pdfErr.message}`, true);
         }
       }
-    }
+      // 4. Upload thumbnail to Blob and save URL to card
+      if (cardId && part._thumbnailB64) {
+        try {
+          btn.innerHTML='<span class="spinner"></span> Uploading preview...';
+          const thumbResp = await fetch('/api/board', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'uploadThumbnail',
+              cardId,
+              filename: `${cardId}.png`,
+              fileBase64: part._thumbnailB64
+            }),
+          });
+          const thumbData = await thumbResp.json();
+          if (thumbData.ok && thumbData.url) {
+            await fetch('/api/board', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'updateCard', id: cardId,
+                updates: { thumbnailUrl: thumbData.url }
+              }),
+            });
+            console.log(`[MFG v1.83] Thumbnail saved: ${thumbData.url}`);
+          }
+        } catch(thumbErr) {
+          console.warn('[MFG v1.83] Thumbnail upload failed:', thumbErr.message);
+          // Non-fatal — card still submitted successfully
+        }
+      }
+    } // end else (non-demo)
 
     addToHistory(payload);
     showToast(`✓ Card submitted for "${name}"`);
