@@ -41,7 +41,7 @@ export default async function handler(req, res) {
           name, status, project, machine, material, thickness,
           part_type, quantity, finish, assigned_to, cad_link, notes,
           step_file_url, step_file_name, pdf_file_url, pdf_file_name,
-          part_id, submitted_by, is_critical
+          part_id, submitted_by, is_critical, thumbnail_url
         ) VALUES (
           ${c.name        || ''},
           ${c.status      || 'Needs Drawing'},
@@ -61,7 +61,8 @@ export default async function handler(req, res) {
           ${c.pdfFileName  || null},
           ${c.partId      || null},
           ${c.submittedBy || c.student || null},
-          ${c.isCritical  ? true : false}
+          ${c.isCritical  ? true : false},
+          ${c.thumbnailUrl || null}
         )
         RETURNING *
       `;
@@ -93,6 +94,7 @@ export default async function handler(req, res) {
           pdf_file_url   = CASE WHEN ${u.pdfFileUrl     !== undefined} THEN ${u.pdfFileUrl     ?? null} ELSE pdf_file_url   END,
           pdf_file_name  = CASE WHEN ${u.pdfFileName    !== undefined} THEN ${u.pdfFileName    ?? null} ELSE pdf_file_name  END,
           is_critical    = CASE WHEN ${u.isCritical     !== undefined} THEN ${u.isCritical     ?? false} ELSE is_critical   END,
+          thumbnail_url  = CASE WHEN ${u.thumbnailUrl   !== undefined} THEN ${u.thumbnailUrl   ?? null}  ELSE thumbnail_url  END,
           updated_at     = NOW()
         WHERE id = ${id}
       `;
@@ -105,12 +107,15 @@ export default async function handler(req, res) {
 
     } else if (action === 'deleteCard') {
       if (!id) return res.status(400).json({ error: 'Missing id' });
-      const rows = await sql`SELECT step_file_url, pdf_file_url FROM cards WHERE id = ${id}`;
+      const rows = await sql`SELECT step_file_url, pdf_file_url, thumbnail_url FROM cards WHERE id = ${id}`;
       if (rows[0]?.step_file_url) {
         try { await del(rows[0].step_file_url); } catch (_) {}
       }
       if (rows[0]?.pdf_file_url) {
         try { await del(rows[0].pdf_file_url); } catch (_) {}
+      }
+      if (rows[0]?.thumbnail_url) {
+        try { await del(rows[0].thumbnail_url); } catch (_) {}
       }
       await sql`DELETE FROM cards WHERE id = ${id}`;
       return res.json({ ok: true });
@@ -140,6 +145,21 @@ export default async function handler(req, res) {
       const blob = await put(blobPath, fileBuffer, {
         access: 'public',
         contentType: 'application/pdf',
+        addRandomSuffix: false,
+      });
+
+      return res.json({ ok: true, url: blob.url });
+
+    } else if (action === 'uploadThumbnail') {
+      const { filename, cardId, fileBase64 } = req.body || {};
+      if (!filename || !fileBase64) return res.status(400).json({ error: 'Missing filename or fileBase64' });
+
+      const fileBuffer = Buffer.from(fileBase64, 'base64');
+      const blobPath = `thumbnails/${cardId || 'unassigned'}/${filename}`;
+
+      const blob = await put(blobPath, fileBuffer, {
+        access: 'public',
+        contentType: 'image/png',
         addRandomSuffix: false,
       });
 
