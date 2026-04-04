@@ -42,6 +42,11 @@
   #use-sel-btn{font-family:'Barlow Condensed',sans-serif;font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:#4ade80;color:#1a3a1a;border:none;border-radius:5px;padding:4px 10px;cursor:pointer;}
   #use-sel-btn:hover{opacity:.85;}
 
+  /* PART THUMBNAIL */
+  .part-thumb-wrap{width:100%;background:var(--navy);border-radius:8px;overflow:hidden;margin-bottom:14px;display:flex;align-items:center;justify-content:center;min-height:120px;border:1px solid var(--border);}
+  .part-thumb-wrap img{width:100%;display:block;border-radius:8px;}
+  .part-thumb-spinner{font-size:.75rem;color:var(--muted);display:flex;align-items:center;gap:8px;}
+
   /* TABS */
   .tab-bar{display:flex;align-items:center;background:var(--blue-dk);border-bottom:1px solid var(--border);padding:0 14px;gap:2px;}
   .tab-bar-spacer{flex:1;}
@@ -1328,6 +1333,7 @@ async function showPartForm(part,idx){
   document.getElementById('modal-title').textContent=part.name;
   document.getElementById('modal-progress').textContent=`${idx+1} of ${queue.length}`;
   document.getElementById('modal-body').innerHTML=`
+    <div class="part-thumb-wrap" id="part-thumb-wrap"><span class="part-thumb-spinner"><span class="spinner"></span> Loading preview...</span></div>
     <label>Part Display Name <span class="required">*</span></label>
     <input type="text" id="f-name" value="${part.name}"/>
     <hr class="sec-div"/>
@@ -1374,10 +1380,36 @@ async function showPartForm(part,idx){
   `;
   document.getElementById('modal-overlay').classList.add('open');
   document.getElementById('modal-next-btn').textContent=idx===queue.length-1?'✓ Submit':'Submit & Next →';
+  // Fetch shaded view thumbnail — one call, no polling, hide on failure
+  fetchPartThumbnail(part);
   // Pre-select status dropdown if auto-detected (must happen after innerHTML is set)
   if (pillState['status']) {
     document.getElementById('f-status').value = pillState['status'];
     onStatusChange(pillState['status']);
+  }
+}
+
+
+// ── PART THUMBNAIL ──
+async function fetchPartThumbnail(part) {
+  const wrap = document.getElementById('part-thumb-wrap');
+  if (!wrap || CONFIG.demo || !docId || !part.studio || !part.id) {
+    if (wrap) wrap.style.display = 'none';
+    return;
+  }
+  try {
+    const path = `/partstudios/d/${docId}/${wvmType}/${wvmId}/e/${part.studio}/shadedviews`
+      + `?partId=${encodeURIComponent(part.id)}&outputHeight=220&outputWidth=440&pixelSize=0`
+      + `&viewMatrix=0.612,0.354,-0.707,0,-0.5,0.866,0,0,0.612,0.354,0.707,0`;
+    const resp = await fetch(`/api/onshape?path=${encodeURIComponent(path)}`);
+    if (!resp.ok) { wrap.style.display = 'none'; return; }
+    const data = await resp.json();
+    const b64 = data?.images?.[0];
+    if (!b64) { wrap.style.display = 'none'; return; }
+    wrap.innerHTML = `<img src="data:image/png;base64,${b64}" alt="${part.name} preview"/>`;
+  } catch(e) {
+    if (wrap) wrap.style.display = 'none';
+    console.warn('[MFG v1.83] Thumbnail fetch failed:', e.message);
   }
 }
 
