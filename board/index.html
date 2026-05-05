@@ -9,7 +9,7 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 :root {
-  /* Neutral dark theme — accent overridden at runtime from TEAM_CONFIG */
+  /* Neutral dark theme */
   --accent:#446ce3;  --accent-dim:rgba(68,108,227,0.15);
   --text:#e2e4ec;    --muted:#6b7280;
   --bg:#0d1117;      --bg-card:#161b22;  --bg-item:#1c2232;  --bg-col:#131720;
@@ -456,13 +456,6 @@ const STATUSES = TEAM_CONFIG.statuses;
 
 // ── Apply config on boot ─────────────────────────────────────────────────────
 (function applyConfig() {
-  // Accent CSS variable
-  if (TEAM_CONFIG.accentColor) {
-    document.documentElement.style.setProperty('--accent', TEAM_CONFIG.accentColor);
-    const h = TEAM_CONFIG.accentColor.replace('#','');
-    const r=(parseInt(h,16)>>16)&255, g=(parseInt(h,16)>>8)&255, b=parseInt(h,16)&255;
-    document.documentElement.style.setProperty('--accent-dim', `rgba(${r},${g},${b},0.15)`);
-  }
   // Auth screen GIS client id + domain hint
   const gsiEl = document.getElementById('g_id_onload');
   if (gsiEl) gsiEl.setAttribute('data-client_id', TEAM_CONFIG.googleClientId || '');
