@@ -21,11 +21,6 @@ const TEAM_CONFIG = {
   teamNumber: '6328',
   teamName:   'Mechanical Advantage',
 
-  // ── Theme ───────────────────────────────────────────────────────────────────
-  // Accent color used for active pills, primary buttons, and highlights.
-  // Any valid CSS color works: '#3b82f6', 'hsl(217,91%,60%)', etc.
-  accentColor: '#446ce3',
-
   // ── Google Auth ─────────────────────────────────────────────────────────────
   // Only accounts from this domain can sign in to the board.
   // Use your team's Google Workspace domain (e.g. 'frc1234.org').
@@ -92,10 +87,6 @@ const TEAM_CONFIG = {
   // When a card is submitted with one of these statuses, a STEP file is
   // automatically exported from OnShape and attached to the card.
   stepStatuses: ['Needs CAM', 'Needs Slicing'],
-
-  // ── Statuses that require a PDF drawing ─────────────────────────────────────
-  // Submitting with one of these statuses prompts the student to attach a PDF.
-  pdfStatuses: ['Ready for Lathe', 'Ready for Mill', 'Ready for CNC Mill'],
 
   // ── Powder Coat Color Detection ─────────────────────────────────────────────
   // Maps finish label → the exact hex color used in OnShape.

@@ -8,7 +8,7 @@
 <script src="../config.js"></script>
 <style>
   :root {
-    /* Neutral dark theme — accent is overridden at runtime from TEAM_CONFIG.accentColor */
+    /* Neutral dark theme */
     --accent:#446ce3;   --accent-dim:rgba(68,108,227,0.15);
     --text:#e2e4ec;     --muted:#6b7280;
     --bg:#0d1117;       --bg-card:#161b22;   --bg-item:#1c2232;  --bg-nav:#0d1014;
@@ -266,13 +266,6 @@
 <script>
 // ── Apply team config on boot ────────────────────────────────────────────────
 (function applyConfig() {
-  // Accent color CSS variable
-  if (TEAM_CONFIG.accentColor) {
-    document.documentElement.style.setProperty('--accent', TEAM_CONFIG.accentColor);
-    const r = parseInt(TEAM_CONFIG.accentColor.replace('#',''),16);
-    const rr=(r>>16)&255, rg=(r>>8)&255, rb=r&255;
-    document.documentElement.style.setProperty('--accent-dim', `rgba(${rr},${rg},${rb},0.15)`);
-  }
   // Header sub-label (team name under "Mfg Pipeline")
   const nameEl = document.getElementById('hdr-team-name');
   if (nameEl) nameEl.textContent = (TEAM_CONFIG.teamName || 'Manufacturing Pipeline');
@@ -1349,8 +1342,16 @@ async function showPartForm(part,idx){
     <hr class="sec-div"/>
     <label>Link to CAD</label>
     <input type="url" id="f-cad-link" value="${cadLink}" placeholder="https://cad.onshape.com/documents/..."/>
-    <label>Assigned Student</label>
-    <input type="text" id="f-student" placeholder="e.g. Sean Tommasini" value="${localStorage.getItem('mfg_student_name')||''}"/>
+    <label>Assigned To</label>
+    <select id="f-student">
+      <option value="">— Unassigned —</option>
+      ${(TEAM_CONFIG.assignees||[]).map(n=>`<option value="${n}"${n===localStorage.getItem('mfg_last_assigned')?'selected':''}>${n}</option>`).join('')}
+    </select>
+    <label>Submitted by <span class="required">*</span></label>
+    <select id="f-submitter">
+      <option value="">— Select your name —</option>
+      ${(TEAM_CONFIG.assignees||[]).map(n=>`<option value="${n}"${n===localStorage.getItem('mfg_submitter_name')?'selected':''}>${n}</option>`).join('')}
+    </select>
     <label>Details / Notes</label>
     <textarea id="f-notes" placeholder="Special instructions, tolerances, references..."></textarea>
     <div class="critical-toggle" id="f-critical" onclick="this.classList.toggle('on')">
@@ -1359,18 +1360,10 @@ async function showPartForm(part,idx){
     </div>
     <hr class="sec-div"/>
     <label>Status <span class="required">*</span></label>
-    <select id="f-status" onchange="onStatusChange(this.value)">
+    <select id="f-status">
       <option value="">— Select a status —</option>
       ${OPTIONS.status.map(s=>`<option value="${s}">${s}</option>`).join('')}
     </select>
-    <div id="pdf-upload-section" style="display:none;margin-top:14px;">
-      <label style="margin-top:0;">Drawing PDF <span style="color:#4ade80;font-size:.7rem;font-weight:400;text-transform:none;letter-spacing:0;">Required for manual machining</span></label>
-      <div class="file-drop" id="file-drop" onclick="document.getElementById('f-file').click()" ondragover="fileDragOver(event)" ondrop="fileDrop(event)">
-        <input type="file" id="f-file" accept=".pdf" onchange="fileSelected(this)"/>
-        <span id="file-drop-label">📄 Click or drag to attach drawing PDF</span>
-        <div class="file-name" id="file-name-display"></div>
-      </div>
-    </div>
   `;
   document.getElementById('modal-overlay').classList.add('open');
   document.getElementById('modal-next-btn').textContent=idx===queue.length-1?'✓ Submit':'Submit & Next →';
@@ -1379,7 +1372,6 @@ async function showPartForm(part,idx){
   // Pre-select status dropdown if auto-detected (must happen after innerHTML is set)
   if (pillState['status']) {
     document.getElementById('f-status').value = pillState['status'];
-    onStatusChange(pillState['status']);
   }
 }
 
@@ -1408,25 +1400,12 @@ async function fetchPartThumbnail(part) {
   }
 }
 
-// ── FILE ──
-function fileSelected(input){if(input.files[0]) setFile(input.files[0]);}
-function fileDragOver(e){e.preventDefault();document.getElementById('file-drop').classList.add('dragover');}
-function fileDrop(e){e.preventDefault();document.getElementById('file-drop').classList.remove('dragover');if(e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);}
 function setFile(file){
   attachedFile=file;
   document.getElementById('file-name-display').textContent=`✓ ${file.name} (${(file.size/1024).toFixed(1)} KB)`;
   document.getElementById('file-drop-label').textContent='📄 Click or drag to change file';
 }
 
-function onStatusChange(status){
-  // Show PDF upload section only for manual machining statuses
-  const pdfSection = document.getElementById('pdf-upload-section');
-  if (!pdfSection) return;
-  const needsPdf = PDF_STATUSES.has(status);
-  pdfSection.style.display = needsPdf ? 'block' : 'none';
-  // Clear attached file if switching away from a PDF status
-  if (!needsPdf) { attachedFile = null; }
-}
 
 // ── STEP EXPORT ──
 const STEP_TIMEOUT_MS = 20000;
@@ -1562,36 +1541,9 @@ async function uploadStepToBlob(fileData, cardId) {
   return data.url; // Vercel Blob public URL
 }
 
-async function uploadPdfToBlob(file, cardId) {
-  // Upload PDF drawing to Vercel Blob via /api/board proxy
-  // Returns the public Blob URL
-  const arrayBuffer = await file.arrayBuffer();
-  const bytes = new Uint8Array(arrayBuffer);
-  let binary = '';
-  const chunkSize = 8192;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-  }
-  const base64 = btoa(binary);
-  const resp = await fetch('/api/board', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      action: 'uploadPdf',
-      filename: file.name,
-      cardId,
-      fileBase64: base64,
-    }),
-  });
-  const data = await resp.json();
-  if (!data.ok) throw new Error(data.error || 'PDF upload error');
-  return data.url;
-}
-
 // ── SUBMIT ──
 const STEP_STATUSES = new Set(TEAM_CONFIG.stepStatuses);
 const DXF_MACHINE   = 'Laser Cutter';
-const PDF_STATUSES  = new Set(TEAM_CONFIG.pdfStatuses);
 
 function skipPart(){advanceQueue();}
 async function submitPart(){
@@ -1601,12 +1553,15 @@ async function submitPart(){
   btn.disabled=true;
 
   const part = queue[queueIdx];
+  const assignedTo  = v('f-student');
+  const submittedBy = v('f-submitter');
+  if (assignedTo)  localStorage.setItem('mfg_last_assigned',  assignedTo);
+  if (submittedBy) localStorage.setItem('mfg_submitter_name', submittedBy);
   const payload={name,project,machine:getPillVal('machine'),material:getPillVal('material'),
     thickness:getPillVal('thickness'),partType:getPillVal('partType'),qty,finish:getPillVal('finish'),
-    status,cadLink:v('f-cad-link'),fileName:attachedFile?attachedFile.name:'',student:v('f-student'),
-    submittedBy:v('f-student'),notes:v('f-notes'),partId:part.id,
+    status,cadLink:v('f-cad-link'),student:assignedTo,
+    submittedBy,notes:v('f-notes'),partId:part.id,
     isCritical:document.getElementById('f-critical').classList.contains('on')};
-  if(v('f-student')) localStorage.setItem('mfg_student_name', v('f-student'));
   document.getElementById('f-critical').classList.remove('on');
 
   try{
@@ -1693,31 +1648,7 @@ async function submitPart(){
         console.log(`[MFG v1.83] Skipping file export — machine "${getPillVal('machine')}", status "${status}"`);
       }
 
-      // 3. Upload PDF drawing — only for manual machining statuses
-      const needsPdf = PDF_STATUSES.has(status);
-      if (needsPdf && attachedFile && attachedFile.name.toLowerCase().endsWith('.pdf') && cardId) {
-        btn.innerHTML='<span class="spinner"></span> Uploading PDF...';
-        try {
-          const pdfUrl = await uploadPdfToBlob(attachedFile, cardId);
-          payload.pdfFileUrl  = pdfUrl;
-          payload.pdfFileName = attachedFile.name;
-          const updateResp = await fetch('/api/board', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'updateCard', id: cardId,
-              updates: { pdfFileUrl: pdfUrl, pdfFileName: attachedFile.name }
-            }),
-          });
-          const updateData = await updateResp.json();
-          if (!updateData.ok) console.error('[MFG v1.83] updateCard (PDF) failed:', updateData.error);
-          else console.log(`[MFG v1.83] PDF saved: ${pdfUrl}`);
-        } catch(pdfErr) {
-          console.warn('[MFG v1.83] PDF upload failed:', pdfErr.message);
-          showToast(`⚠️ PDF upload failed for "${name}": ${pdfErr.message}`, true);
-        }
-      }
-      // 4. Upload thumbnail to Blob and save URL to card
+      // 3. Upload thumbnail to Blob and save URL to card
       if (cardId && part._thumbnailB64) {
         try {
           btn.innerHTML='<span class="spinner"></span> Uploading preview...';
