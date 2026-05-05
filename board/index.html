@@ -770,32 +770,32 @@ function buildListView() {
 
     const table = document.createElement('table');
     table.className = 'list-table';
-    table.innerHTML = `
-      <thead>
-        <tr>
-          <th style="min-width:200px">Part Name</th>
-          <th style="min-width:90px">Project</th>
-          <th style="min-width:105px">Machine</th>
-          <th style="min-width:90px">Part Type</th>
-          <th style="min-width:130px">Material</th>
-          <th style="min-width:70px">Thickness</th>
-          <th style="min-width:110px">Finish</th>
-          <th style="min-width:45px">Qty</th>
-          <th style="min-width:110px">Assignee</th>
-          <th style="min-width:160px">Notes</th>
-          <th style="min-width:80px">CAD</th>
-          <th style="min-width:80px">File</th>
-          <th style="min-width:80px">Submitted</th>
-          <th style="min-width:60px"></th>
-        </tr>
-      </thead>
-      <tbody></tbody>`;
-    const tbody = table.querySelector('tbody');
     const COLS = 14;
 
     if (cards.length === 0) {
-      tbody.innerHTML = `<tr class="list-row-empty"><td colspan="${COLS}">No cards</td></tr>`;
+      table.innerHTML = `<tbody><tr class="list-row-empty"><td colspan="${COLS}">No cards</td></tr></tbody>`;
     } else {
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th style="min-width:200px">Part Name</th>
+            <th style="min-width:90px">Project</th>
+            <th style="min-width:105px">Machine</th>
+            <th style="min-width:90px">Part Type</th>
+            <th style="min-width:130px">Material</th>
+            <th style="min-width:70px">Thickness</th>
+            <th style="min-width:110px">Finish</th>
+            <th style="min-width:45px">Qty</th>
+            <th style="min-width:110px">Assignee</th>
+            <th style="min-width:160px">Notes</th>
+            <th style="min-width:80px">CAD</th>
+            <th style="min-width:80px">File</th>
+            <th style="min-width:80px">Submitted</th>
+            <th style="min-width:60px"></th>
+          </tr>
+        </thead>
+        <tbody></tbody>`;
+      const tbody = table.querySelector('tbody');
       cards.forEach(card => {
         const tr = document.createElement('tr');
         if (card.is_critical) tr.classList.add('is-critical');
