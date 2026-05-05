@@ -1208,16 +1208,16 @@ function updateSelCount(){
 }
 
 // ── PILLS ──
-function renderPills(key,options,placeholder='Custom...'){
+function renderPills(key,options,placeholder='Custom...',allowCustom=true){
   const cur=pillState[key]||'';
   const isCustom=cur&&!options.includes(cur);
   return `
     <div class="pill-group" id="pills-${key}">
       ${options.map(o=>`<span class="pill${cur===o?' active':''}" onclick="selectPill('${key}','${o}')">${o}</span>`).join('')}
     </div>
-    <div class="pill-custom">
+    ${allowCustom?`<div class="pill-custom">
       <input type="text" id="custom-${key}" placeholder="${placeholder}" value="${isCustom?cur:''}" oninput="pillCustomInput('${key}',this.value)"/>
-    </div>`;
+    </div>`:`<input type="hidden" id="custom-${key}"/>`}`;
 }
 function selectPill(key,val){
   pillState[key]=val;
@@ -1338,7 +1338,7 @@ async function showPartForm(part,idx){
     <label>Material</label>
     ${renderPills('material',OPTIONS.material,'Custom material...')}
     <label>Thickness of Material</label>
-    ${renderPills('thickness',OPTIONS.thickness,'Custom thickness...')}
+    ${renderPills('thickness',OPTIONS.thickness,'',false)}
     <label>Type of Part</label>
     ${renderPills('partType',OPTIONS.partType,'Custom type...')}
     <hr class="sec-div"/>
