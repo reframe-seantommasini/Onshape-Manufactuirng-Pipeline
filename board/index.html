@@ -66,7 +66,8 @@ header{background:var(--blue-dk);border-bottom:3px solid var(--accent);padding:1
 .filter-bar{background:var(--navy);border-bottom:1px solid var(--border);padding:8px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap;position:sticky;top:63px;z-index:19;}
 .filter-bar label{font-family:'Barlow Condensed',sans-serif;font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
 .filter-select{font-family:'Barlow',sans-serif;font-size:.78rem;background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:4px 8px;cursor:pointer;}
-.filter-select:focus{outline:none;border-color:var(--gold);}
+.filter-select:focus{outline:none;border-color:var(--accent);}
+.filter-select option{background:#1c2232;color:var(--text);}
 .filter-count{margin-left:auto;font-size:.72rem;color:var(--muted);}
 .filter-search{font-family:'Barlow',sans-serif;font-size:.78rem;background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:4px 10px 4px 28px;outline:none;transition:border-color .15s;width:180px;}
 .filter-search:focus{border-color:var(--gold);}
@@ -384,7 +385,7 @@ tr:hover .lt-actions{opacity:1;}
         <select id="f-finish"><option value="">—</option></select>
       </div>
       <div class="field"><label>Quantity</label><input type="number" id="f-qty" min="1" placeholder="1"/></div>
-      <div class="field full"><label>Assigned To</label><input type="text" id="f-assigned" placeholder="Student name"/></div>
+      <div class="field full"><label>Assigned To</label><select id="f-assigned"></select></div>
       <div class="field full"><label>CAD Link</label><input type="url" id="f-cadlink" placeholder="https://cad.onshape.com/..."/></div>
       <div class="field full"><label>Notes</label><textarea id="f-notes" placeholder="Special instructions, tolerances, etc."></textarea></div>
       <div class="field full">
@@ -491,6 +492,7 @@ const STATUSES = TEAM_CONFIG.statuses;
   fillSelect('f-material',  TEAM_CONFIG.materials,   '—');
   fillSelect('f-thickness', TEAM_CONFIG.thicknesses, '—');
   fillSelect('f-finish',    TEAM_CONFIG.finishes,    '—');
+  fillSelect('f-assigned',  TEAM_CONFIG.assignees || [], '—');
 })();
 
 let allCards = [], editingId = null, userEmail = null, dragCardId = null;
@@ -949,7 +951,11 @@ function openEditModal(id) {
   document.getElementById('f-thickness').value = c.thickness   || '';
   document.getElementById('f-finish').value    = c.finish      || '';
   document.getElementById('f-qty').value       = c.quantity    || '';
-  document.getElementById('f-assigned').value  = c.assigned_to || '';
+  const assignSel = document.getElementById('f-assigned');
+  if (c.assigned_to && !Array.from(assignSel.options).some(o => o.value === c.assigned_to)) {
+    assignSel.insertAdjacentHTML('beforeend', `<option value="${esc(c.assigned_to)}">${esc(c.assigned_to)}</option>`);
+  }
+  assignSel.value = c.assigned_to || '';
   document.getElementById('f-cadlink').value   = c.cad_link    || '';
   document.getElementById('f-notes').value     = c.notes       || '';
   const ct = document.getElementById('critical-toggle');

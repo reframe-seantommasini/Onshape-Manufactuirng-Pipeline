@@ -40,6 +40,13 @@ const TEAM_CONFIG = {
   // Full URL to your deployed board — used in the OnShape panel "Board ↗" link.
   boardUrl: 'https://slack-list-onshape-integration.vercel.app/board',
 
+  // ── Team Members ────────────────────────────────────────────────────────────
+  // Names shown in the "Assigned To" dropdown on new/edit card forms.
+  // Add every student or mentor who might be assigned manufacturing work.
+  assignees: [
+    'Sean Tommasini',
+  ],
+
   // ── Projects ────────────────────────────────────────────────────────────────
   // Shown as pills in the panel and as filter options in the board.
   projects: ['Dev Bot', 'Prototype', 'Comp Bot', 'Spare', 'Off-Season', 'Other'],
