@@ -24,7 +24,7 @@ const TEAM_CONFIG = {
   // ── Theme ───────────────────────────────────────────────────────────────────
   // Accent color used for active pills, primary buttons, and highlights.
   // Any valid CSS color works: '#3b82f6', 'hsl(217,91%,60%)', etc.
-  accentColor: '#3b82f6',
+  accentColor: '#a855f7',
 
   // ── Google Auth ─────────────────────────────────────────────────────────────
   // Only accounts from this domain can sign in to the board.
