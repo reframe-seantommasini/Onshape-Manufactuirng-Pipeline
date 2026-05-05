@@ -3,21 +3,29 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Manufacturing Pipeline — FRC 6328 v1.83</title>
+<title>Manufacturing Pipeline</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="../config.js"></script>
 <style>
   :root {
-    --gold:#EFAB28;--cream:#F4F4EE;--blue-lt:#446CE3;--blue-md:#2F4E94;
-    --blue-dk:#162F65;--navy:#2F4E94;--text:#F4F4EE;--muted:#8fa3c8;
-    --border:#2F4E94;--input-bg:#151D3B;
+    /* Neutral dark theme — accent is overridden at runtime from TEAM_CONFIG.accentColor */
+    --accent:#3b82f6;   --accent-dim:rgba(59,130,246,0.15);
+    --text:#e2e4ec;     --muted:#6b7280;
+    --bg:#0d1117;       --bg-card:#161b22;   --bg-item:#1c2232;  --bg-nav:#0d1014;
+    --border:rgba(255,255,255,0.08);         --input-bg:#0d1014;
+    --success:#22c55e;  --danger:#ef4444;
+    /* Legacy aliases so unchanged CSS rules still resolve */
+    --gold:var(--accent);  --cream:var(--text);
+    --blue-lt:var(--accent); --blue-md:var(--bg-nav); --blue-dk:var(--bg-card);
+    --navy:var(--bg-card);
   }
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:'Barlow',sans-serif;background:var(--navy);color:var(--text);min-height:100vh;}
+  body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
 
   /* CONFIG */
-  #config-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;background:#2F4E94;}
+  #config-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;background:var(--bg);}
   #config-screen p{font-size:0.8rem;color:var(--muted);margin-bottom:24px;text-align:center;}
-  .config-card{background:#162F65;border:1px solid var(--border);border-radius:12px;padding:24px;width:100%;max-width:420px;}
+  .config-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px;width:100%;max-width:420px;}
   .config-card h2{font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.12em;margin-bottom:14px;}
   .cfg-field{margin-bottom:12px;}
   .cfg-field label{margin-top:0;margin-bottom:4px;}
@@ -67,9 +75,9 @@
   /* PARTS */
   .parts-area{flex:1;overflow-y:auto;padding:14px;}
   .part-list{display:flex;flex-direction:column;gap:6px;}
-  .part-item{background:var(--blue-dk);border:1px solid var(--border);border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:border-color .15s,background .15s;}
-  .part-item:hover{border-color:var(--gold);background:#1c2d5a;}
-  .part-item.selected{border-color:var(--gold);background:#1c2d5a;}
+  .part-item{background:var(--bg-item);border:1px solid var(--border);border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:border-color .15s,background .15s;}
+  .part-item:hover{border-color:var(--accent);background:var(--accent-dim);}
+  .part-item.selected{border-color:var(--accent);background:var(--accent-dim);}
   .part-item.from-studio{border-left:3px solid #4ade80;}
   .part-item input[type=checkbox]{accent-color:var(--gold);width:15px;height:15px;flex-shrink:0;cursor:pointer;}
   .part-name{font-size:.85rem;font-weight:600;flex:1;color:var(--cream);}
@@ -79,7 +87,7 @@
 
   /* HISTORY */
   .history-list{padding:14px;display:flex;flex-direction:column;gap:8px;}
-  .history-item{background:var(--blue-dk);border:1px solid var(--border);border-radius:8px;padding:10px 12px;}
+  .history-item{background:var(--bg-item);border:1px solid var(--border);border-radius:8px;padding:10px 12px;}
   .history-item-name{font-size:.85rem;font-weight:600;color:var(--cream);}
   .history-item-meta{font-size:.7rem;color:var(--muted);margin-top:3px;}
   .history-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
@@ -160,13 +168,12 @@
 <div id="app">
   <header>
     <div class="hdr-logo">
-      <span class="hdr-num">FRC 6328</span>
-      <span class="hdr-sub">Mechanical Advantage</span>
+      <span class="hdr-num" id="hdr-team-num">FRC</span>
+      <span class="hdr-sub" id="hdr-team-name">Manufacturing Pipeline</span>
     </div>
     <div class="hdr-divider"></div>
     <span class="hdr-title">Mfg Pipeline</span>
     <span class="doc-badge" id="doc-label">No document</span>
-    <span style="font-size:.6rem;color:var(--muted);margin-left:4px;">v1.83</span>
   </header>
 
   <div id="selection-banner">
@@ -180,7 +187,7 @@
     <div class="tab active" onclick="switchTab('parts')">Parts</div>
     <div class="tab" onclick="switchTab('history')">History</div>
     <div class="tab-bar-spacer"></div>
-    <a class="tab-link" href="https://slack-list-onshape-integration.vercel.app/board" target="_blank" rel="noopener">Board ↗</a>
+    <a class="tab-link" id="board-link" href="#" target="_blank" rel="noopener">Board ↗</a>
   </div>
 
   <!-- PARTS TAB -->
@@ -237,14 +244,40 @@
 <div id="toast"></div>
 
 <script>
+// ── Apply team config on boot ────────────────────────────────────────────────
+(function applyConfig() {
+  // Accent color CSS variable
+  if (TEAM_CONFIG.accentColor) {
+    document.documentElement.style.setProperty('--accent', TEAM_CONFIG.accentColor);
+    const r = parseInt(TEAM_CONFIG.accentColor.replace('#',''),16);
+    const rr=(r>>16)&255, rg=(r>>8)&255, rb=r&255;
+    document.documentElement.style.setProperty('--accent-dim', `rgba(${rr},${rg},${rb},0.15)`);
+  }
+  // Header branding
+  const numEl = document.getElementById('hdr-team-num');
+  const nameEl = document.getElementById('hdr-team-name');
+  if (numEl) numEl.textContent = 'FRC ' + (TEAM_CONFIG.teamNumber || '');
+  if (nameEl) nameEl.textContent = TEAM_CONFIG.teamName || 'Manufacturing Pipeline';
+  // Board link
+  const boardLink = document.getElementById('board-link');
+  if (boardLink && TEAM_CONFIG.boardUrl) boardLink.href = TEAM_CONFIG.boardUrl;
+  // Global project pills
+  const pillsEl = document.getElementById('global-project-pills');
+  if (pillsEl) {
+    pillsEl.innerHTML = (TEAM_CONFIG.projects || [])
+      .map(o => `<span class="pill" onclick="setGlobalProject('${o}')">${o}</span>`).join('');
+  }
+})();
+
+// Alias OPTIONS to TEAM_CONFIG for backwards compatibility within this file
 const OPTIONS = {
-  project:   ['Dev Bot','Prototype','Comp Bot','Spare','Off-Season','Demo','Other'],
-  machine:   ['CNC Router','CNC Mill','Lathe','3D Printer','Laser Cutter','Chop Saw','Mill','Other'],
-  material:  ['Aluminum','Polycarb','PLA+','Steel (Mild)','Carbon Fiber','SRPP','Other'],
-  thickness: ['1/16 in','1/8 in','3/16 in','1/4 in','3/8 in','1/2 in','0.09 in','Other'],
-  partType:  ['Plate','Sheet Metal','Hex Shaft','Round Shaft','Billet','Tube 1×1in','Tube 1×2in','Tube 2×2in','Other'],
-  finish:    ['None','Black','Blue','Yellow','Pink','Other'],
-  status:    ['Needs Drawing','Needs CAM','Needs Slicing','Done!','Ready for CNC Mill','Ready for CNC Router','Done Fab Need to Powder Coat','Ready for Lathe','Ready for 3D Printer','Ready for Mill','Ready for Laser Cutter','In Progress'],
+  project:   TEAM_CONFIG.projects,
+  machine:   TEAM_CONFIG.machines,
+  material:  TEAM_CONFIG.materials,
+  thickness: TEAM_CONFIG.thicknesses,
+  partType:  TEAM_CONFIG.partTypes,
+  finish:    TEAM_CONFIG.finishes,
+  status:    TEAM_CONFIG.statuses.map(s => s.id),
 };
 
 // ── POWDER COAT COLOR DETECTION ─────────────────────────────────────────────
@@ -271,13 +304,10 @@ const ONSHAPE_DEFAULTS = [
   '#C4E2F3','#F88701','#7F7F7F','#FAB601','#AAAAAA'
 ].map(hexToRgb);
 
-// Powder coat colors — your actual options with exact hex codes
-const POWDER_COAT_COLORS = {
-  'Blue':   hexToRgb('#003DB9'),
-  'Black':  hexToRgb('#404040'),
-  'Yellow': hexToRgb('#FACB43'),
-  'Pink':   hexToRgb('#FF6ECD'),
-};
+// Powder coat colors — built from TEAM_CONFIG.powderCoatColors
+const POWDER_COAT_COLORS = Object.fromEntries(
+  Object.entries(TEAM_CONFIG.powderCoatColors).map(([k, v]) => [k, hexToRgb(v)])
+);
 
 const DEFAULT_SKIP_THRESHOLD = 8;   // tight tolerance for "exact" match (handles float rounding)
 const MATCH_THRESHOLD        = 80;  // max distance to a powder coat color to claim a match
@@ -310,27 +340,8 @@ function matchFinishColor(osColor, isGenerated) {
 // Maps OnShape material displayName substrings to pill labels.
 // Each entry: { match: substring (lowercase), label: pill value }
 // First match wins — order matters for specificity.
-const MATERIAL_MAP = [
-  { match: '6061-t6',              label: 'Aluminum'      },
-  { match: 'aluminum',             label: 'Aluminum'      },
-  { match: 'polycarbonate',        label: 'Polycarb'      },
-  { match: 'polycarb',             label: 'Polycarb'      },
-  { match: 'carbon fiber epoxy',   label: 'Carbon Fiber'  }, // specific before generic 'carbon'
-  { match: 'carbon fiber',         label: 'Carbon Fiber'  },
-  { match: 'carbon',               label: 'Carbon Fiber'  },
-  { match: 'pla+',                 label: 'PLA+'          },
-  { match: 'pla',                  label: 'PLA+'          },
-  { match: 'steel',                label: 'Steel (Mild)'  },
-  { match: 'srpp',                 label: 'SRPP'          },
-  { match: 'polypropylene',        label: 'SRPP'          },
-];
-
-// Density-based fallbacks for custom materials where displayName won't match.
-// OnShape stores density in kg/m³. 1 g/cm³ = 1000 kg/m³.
-// PLA+ custom: team uses density 0.019 g/cm³ = 19 kg/m³ — uniquely low, nothing else is close.
-const MATERIAL_DENSITY_MAP = [
-  { label: 'PLA+', densityKgM3: 19, toleranceKgM3: 0.5 },
-];
+const MATERIAL_MAP         = TEAM_CONFIG.materialMap;
+const MATERIAL_DENSITY_MAP = TEAM_CONFIG.materialDensityMap;
 
 function matchMaterial(osMaterial) {
   // Returns a pill label string or null.
@@ -363,15 +374,8 @@ function matchMaterial(osMaterial) {
 }
 
 // ── PLATE AUTO-DETECT ──
-// Known plate thicknesses in inches. OnShape massproperties returns meters → convert.
-const PLATE_THICKNESSES_IN = [
-  { label: '1/16 in', value: 0.0625  },
-  { label: '0.09 in', value: 0.09    },
-  { label: '1/8 in',  value: 0.125   },
-  { label: '3/16 in', value: 0.1875  },
-  { label: '1/4 in',  value: 0.25    },
-];
-const PLATE_TOLERANCE_IN = 0.005; // ±0.005" snap window to account for fillets/chamfers
+const PLATE_THICKNESSES_IN = TEAM_CONFIG.plateThicknesses;
+const PLATE_TOLERANCE_IN   = 0.005; // ±0.005" snap window to account for fillets/chamfers
 
 async function autoDetectPlate(part) {
   // Returns { partType: 'Plate', thickness: '1/8 in' } or null if no match.
@@ -426,23 +430,11 @@ function(context is Context, queries) {
 }
 
 // ── TUBE AUTO-DETECT ──
-// Known FRC tube cross-sections in inches: [dim1, dim2] where dim1 <= dim2.
-// Common wall thicknesses are 0.050" and 0.125" but don't affect bounding box cross-section.
-const TUBE_CROSS_SECTIONS = [
-  { label: 'Tube 1×1in', d1: 1.0, d2: 1.0 },
-  { label: 'Tube 1×2in', d1: 1.0, d2: 2.0 },
-  { label: 'Tube 2×2in', d1: 2.0, d2: 2.0 },
-];
-const TUBE_CROSS_TOL_IN = 0.05;  // ±0.050" — accounts for end cuts and slight measurement drift
-const TUBE_MIN_LENGTH_IN = 0.75; // cross-section long axis must exceed this to distinguish from a block
-
-// Known tube wall thicknesses to snap to, in inches
-const TUBE_WALL_THICKNESSES_IN = [
-  { label: '1/16 in', value: 0.0625 },
-  { label: '0.09 in', value: 0.09   },
-  { label: '1/8 in',  value: 0.125  },
-];
-const TUBE_WALL_TOL_IN = 0.008; // +/-0.008" snap window
+const TUBE_CROSS_SECTIONS    = TEAM_CONFIG.tubeCrossSections;
+const TUBE_CROSS_TOL_IN      = 0.05;  // ±0.050"
+const TUBE_MIN_LENGTH_IN     = 0.75;
+const TUBE_WALL_THICKNESSES_IN = TEAM_CONFIG.tubeWallThicknesses;
+const TUBE_WALL_TOL_IN       = 0.008; // ±0.008"
 
 async function autoDetectTube(part) {
   // Returns { partType: 'Tube 1x2in', thickness: '0.09 in' } or null.
@@ -572,25 +564,13 @@ function(context is Context, queries) {
 }
 
 // ── HEX SHAFT AUTO-DETECT ──
-// Hex stock has two distinct cross-section dims: flat-to-flat (F2F) and corner-to-corner (C2C).
-// C2C = F2F / cos(30°) ≈ F2F * 1.1547
-//   1/2" hex:  F2F=0.500", C2C≈0.577"
-//   3/8" hex:  F2F=0.375", C2C≈0.433"
-// Bounding box will show these two dims for cross-section; third dim is shaft length.
-const HEX_SHAFT_PROFILES = [
-  { diameter: '1/2 in', f2f: 0.500, c2c_sharp: 0.577, c2c_rounded: 0.541 },
-  { diameter: '3/8 in', f2f: 0.375, c2c_sharp: 0.433, c2c_rounded: 0.404 },
-];
-const HEX_SHAFT_TOL_IN    = 0.015; // ±0.015" — tighter than tube, hex dims are very precise
-const HEX_SHAFT_MIN_LEN_IN = 0.5;  // must be at least 0.5" long
+const HEX_SHAFT_PROFILES   = TEAM_CONFIG.hexShaftProfiles;
+const HEX_SHAFT_TOL_IN     = 0.015;
+const HEX_SHAFT_MIN_LEN_IN = 0.5;
 
 // ── ROUND SHAFT AUTO-DETECT ──
-// Cylindrical shaft: two cross-section dims are equal (diameter × diameter), third is length.
-const ROUND_SHAFT_DIAMETERS = [
-  { diameter: '1/2 in', value: 0.500 },
-  { diameter: '3/8 in', value: 0.375 },
-];
-const ROUND_SHAFT_TOL_IN    = 0.015;
+const ROUND_SHAFT_DIAMETERS  = TEAM_CONFIG.roundShaftDiameters;
+const ROUND_SHAFT_TOL_IN     = 0.015;
 const ROUND_SHAFT_MIN_LEN_IN = 0.5;
 
 async function autoDetectHexShaft(part) {
@@ -759,10 +739,6 @@ function v(id){return document.getElementById(id)?.value?.trim()||'';}
 
 // ── INIT — fires as soon as the DOM is ready ────────────────────────────────
 window.addEventListener('DOMContentLoaded', ()=>{
-
-  // Render global project pills in the side panel
-  document.getElementById('global-project-pills').innerHTML =
-    OPTIONS.project.map(o=>`<span class="pill" onclick="setGlobalProject('${o}')">${o}</span>`).join('');
 
   // 1. RAW MESSAGE SPY — logs every postMessage before any filtering.
   window.addEventListener('message', e=>{
@@ -1263,7 +1239,7 @@ async function showPartForm(part,idx){
   }
 
   // Auto-detect powder coat color — skipped for materials that never get powder coated
-  const NO_FINISH_MATERIALS = ['PLA+', 'Polycarb', 'SRPP', 'Carbon Fiber'];
+  const NO_FINISH_MATERIALS = TEAM_CONFIG.noFinishMaterials;
   if (NO_FINISH_MATERIALS.includes(detectedMaterial)) {
     pillState['finish'] = 'None';
   } else {
@@ -1595,13 +1571,9 @@ async function uploadPdfToBlob(file, cardId) {
 }
 
 // ── SUBMIT ──
-// Statuses that require a STEP file export (CNC/laser only)
-const STEP_STATUSES = new Set(['Needs CAM', 'Needs Slicing']);
-// Laser Cutter triggers DXF export instead of STEP
-const DXF_MACHINE = 'Laser Cutter';
-
-// Statuses where students should attach a PDF drawing (manual machining)
-const PDF_STATUSES = new Set(['Ready for Lathe', 'Ready for Mill', 'Ready for CNC Mill']);
+const STEP_STATUSES = new Set(TEAM_CONFIG.stepStatuses);
+const DXF_MACHINE   = 'Laser Cutter';
+const PDF_STATUSES  = new Set(TEAM_CONFIG.pdfStatuses);
 
 function skipPart(){advanceQueue();}
 async function submitPart(){
