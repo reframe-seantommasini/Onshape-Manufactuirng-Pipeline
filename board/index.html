@@ -565,6 +565,17 @@ function signOut() {
 function parseJwt(t) { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); }
 
 window.addEventListener('DOMContentLoaded', () => {
+  // Dev bypass: append ?dev=1 to skip Google auth entirely
+  if (new URLSearchParams(location.search).get('dev') === '1') {
+    userEmail = 'dev@localhost';
+    document.getElementById('hdr-user').textContent = 'Dev Mode';
+    const badge = document.createElement('span');
+    badge.textContent = 'DEV';
+    badge.style.cssText = 'font-family:"Barlow Condensed",sans-serif;font-size:.6rem;font-weight:700;letter-spacing:.1em;background:#fbbf24;color:#0d1117;border-radius:4px;padding:2px 5px;margin-left:6px;';
+    document.getElementById('hdr-user').after(badge);
+    showApp();
+    return;
+  }
   // Restore session from localStorage — no re-login needed on refresh
   const savedEmail = localStorage.getItem('mfg_user_email');
   const savedName  = localStorage.getItem('mfg_user_name');
