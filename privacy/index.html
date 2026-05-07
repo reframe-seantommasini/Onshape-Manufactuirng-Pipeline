@@ -10,36 +10,25 @@
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: #f9fafb;
     color: #111827;
-    line-height: 1.7;
+    line-height: 1.75;
     padding: 48px 24px 80px;
   }
-  .wrap { max-width: 680px; margin: 0 auto; }
+  .wrap { max-width: 660px; margin: 0 auto; }
 
-  header { margin-bottom: 48px; padding-bottom: 24px; border-bottom: 1px solid #e5e7eb; }
-  .logo-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-  .logo-row svg { display: block; flex-shrink: 0; }
-  .logo-name { font-size: 1rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #111827; }
-  h1 { font-size: 1.5rem; font-weight: 700; color: #111827; margin-bottom: 6px; }
-  .meta { font-size: .82rem; color: #6b7280; }
+  header { margin-bottom: 40px; padding-bottom: 24px; border-bottom: 1px solid #e5e7eb; }
+  .logo-row { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .logo-name { font-size: .95rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #111827; }
+  h1  { font-size: 1.6rem; font-weight: 700; color: #111827; margin-bottom: 6px; }
+  .meta { font-size: .83rem; color: #6b7280; }
 
-  h2 { font-size: 1rem; font-weight: 700; color: #111827; margin: 32px 0 8px; }
-  p  { font-size: .9rem; color: #374151; margin-bottom: 12px; }
-  ul { font-size: .9rem; color: #374151; padding-left: 20px; margin-bottom: 12px; }
-  ul li { margin-bottom: 6px; }
-  a  { color: #446ce3; text-decoration: none; }
+  h2  { font-size: 1rem; font-weight: 700; color: #111827; margin: 36px 0 10px; }
+  p   { font-size: .9rem; color: #374151; margin-bottom: 14px; }
+  ul  { font-size: .9rem; color: #374151; padding-left: 22px; margin-bottom: 14px; }
+  li  { margin-bottom: 6px; }
+  a   { color: #446ce3; text-decoration: none; }
   a:hover { text-decoration: underline; }
 
-  .callout {
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    border-radius: 8px;
-    padding: 14px 18px;
-    font-size: .85rem;
-    color: #1e40af;
-    margin: 24px 0;
-  }
-
-  footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid #e5e7eb; font-size: .8rem; color: #9ca3af; }
+  footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: .8rem; color: #9ca3af; }
 </style>
 </head>
 <body>
@@ -47,8 +36,7 @@
 
   <header>
     <div class="logo-row">
-      <!-- Section logo mark -->
-      <svg width="32" height="32" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg width="30" height="30" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
         <defs><clipPath id="pp-rh"><path d="M24 5 A19 19 0 0 1 24 43 L24 5 Z"/></clipPath></defs>
         <path d="M24 5 A19 19 0 0 1 24 43 Z" fill="rgba(68,108,227,0.13)"/>
         <g clip-path="url(#pp-rh)" opacity="0.3">
@@ -70,63 +58,26 @@
       <span class="logo-name">Manufacturing Pipeline</span>
     </div>
     <h1>Privacy Policy</h1>
-    <p class="meta">Last updated: May 2026 &nbsp;·&nbsp; Applies to the Manufacturing Pipeline OnShape application</p>
+    <p class="meta">This policy was last modified on May 7th, 2026.</p>
   </header>
 
-  <div class="callout">
-    Manufacturing Pipeline is an open-source tool built for FIRST Robotics Competition teams. Each team deploys and operates their own independent instance. This policy describes how data is handled within a single team's deployment.
-  </div>
+  <p>Manufacturing Pipeline is a volunteer-run project that is owned and published by the Littleton STEM Educational Foundation ("Littleton Robotics"), a non-profit organization based in the United States.</p>
 
-  <h2>1. What This App Does</h2>
-  <p>Manufacturing Pipeline is an OnShape right-panel extension and companion Kanban board that helps FRC teams track parts through their manufacturing workflow — from CAD to machined and done. It connects to OnShape to read part metadata and exports STEP files automatically when parts are ready for CAM.</p>
+  <h2>Information We Collect</h2>
+  <p>Manufacturing Pipeline stores manufacturing card data entered by team members, including part names, project assignments, machine, material, quantity, status, and notes. This data is stored in infrastructure provisioned and owned by each team that deploys the application.</p>
+  <p>The manufacturing board uses Google Sign-In to verify that users belong to an authorized team domain. The user's Google display name and email address are used only for this verification and are stored locally in the user's browser. They are not transmitted to or stored on Littleton Robotics servers.</p>
+  <p>Littleton Robotics does not have access to data stored by teams using self-hosted instances of Manufacturing Pipeline.</p>
 
-  <h2>2. Information We Collect</h2>
-  <p>When you use Manufacturing Pipeline, the following information may be stored in your team's database:</p>
-  <ul>
-    <li><strong>Manufacturing card data</strong> — part names, project assignment, machine, material, thickness, quantity, status, notes, and CAD links. This data is entered by team members through the OnShape panel.</li>
-    <li><strong>Names</strong> — the "Assigned To" and "Submitted By" names selected when creating a card. These come from a fixed list configured by your team and are not collected from external sources.</li>
-    <li><strong>Google account information</strong> — when signing into the manufacturing board, your Google display name and email address are used to verify that you belong to your team's authorized domain. Your email is stored locally in your browser (localStorage) to maintain your session. It is not stored on the server.</li>
-    <li><strong>STEP files and thumbnails</strong> — when a part is submitted with a CAM-ready status, a STEP file is automatically exported from OnShape and stored in your team's file storage. A small preview thumbnail image may also be stored.</li>
-  </ul>
+  <h2>Third-Party Data Collection</h2>
+  <p>The Manufacturing Pipeline repository is hosted by GitHub, which publishes a <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" target="_blank">privacy policy</a> that applies when interacting with these services.</p>
+  <p>Teams that deploy Manufacturing Pipeline use Vercel for hosting and Neon for database storage. Use of your data is subject to <a href="https://vercel.com/legal/privacy-policy" target="_blank">Vercel's privacy policy</a> and <a href="https://neon.tech/privacy-policy" target="_blank">Neon's privacy policy</a>.</p>
+  <p>The Manufacturing Pipeline OnShape panel integrates with the OnShape API to read part geometry and export STEP files. These interactions are covered by <a href="https://www.onshape.com/en/legal/privacy-policy" target="_blank">OnShape's privacy policy</a>.</p>
+  <p>Sign-in to the manufacturing board uses Google Identity Services. These interactions are covered by <a href="https://policies.google.com/privacy" target="_blank">Google's privacy policy</a>.</p>
 
-  <h2>3. How Information Is Stored</h2>
-  <ul>
-    <li><strong>Database</strong> — manufacturing card data is stored in a PostgreSQL database (Neon) provisioned by and belonging to your team's Vercel account.</li>
-    <li><strong>File storage</strong> — STEP files and thumbnails are stored in Vercel Blob storage belonging to your team's account.</li>
-    <li><strong>Browser storage</strong> — your Google sign-in session (name and email) is stored in your browser's localStorage and cleared when you sign out. Nothing is stored in cookies.</li>
-  </ul>
-  <p>All data is stored within infrastructure you control (your Vercel account). The app developers have no access to your team's data.</p>
+  <h2>Contact</h2>
+  <p>Questions about this policy can be directed to <a href="mailto:software@team6328.org">software@team6328.org</a>.</p>
 
-  <h2>4. OnShape Integration</h2>
-  <p>Manufacturing Pipeline connects to OnShape using API credentials configured by your team. It reads part names, materials, and geometry from documents you open it in. It may export STEP files from parts you explicitly submit through the panel. The app does not modify your OnShape documents.</p>
-
-  <h2>5. Google Authentication</h2>
-  <p>The manufacturing board uses Google Identity Services (OAuth 2.0) for sign-in. Authentication is handled directly between your browser and Google — your team's deployment never sees your Google password. Sign-in is restricted to email addresses from your team's configured Google Workspace domain.</p>
-
-  <h2>6. Data Sharing</h2>
-  <p>Manufacturing Pipeline does not sell, share, or transmit your data to any third party. Your data lives entirely within your team's own infrastructure. The only external services involved are:</p>
-  <ul>
-    <li><strong>OnShape</strong> — to read part data and export files (per your team's API credentials)</li>
-    <li><strong>Google</strong> — for identity verification during board sign-in</li>
-    <li><strong>Vercel</strong> — as the hosting and storage provider for your deployment</li>
-  </ul>
-
-  <h2>7. Data Retention</h2>
-  <p>Data is retained for as long as your team chooses to keep it. Your team's administrators can delete individual cards through the board interface or delete all data by removing the database.</p>
-
-  <h2>8. Children's Privacy</h2>
-  <p>Manufacturing Pipeline is intended for use by FRC team members. The app does not knowingly collect personal information beyond what is described above. Given FRC's student-age user base, team administrators are responsible for ensuring appropriate use within their organization.</p>
-
-  <h2>9. Changes to This Policy</h2>
-  <p>This policy may be updated as the app evolves. Material changes will be noted in the GitHub repository. Continued use of the app after changes constitutes acceptance of the updated policy.</p>
-
-  <h2>10. Contact</h2>
-  <p>Manufacturing Pipeline is an open-source project. For questions about this privacy policy or the app, please open an issue on the <a href="https://github.com/reframe-seantommasini/Onshape-Manufactuirng-Pipeline" target="_blank">GitHub repository</a>.</p>
-
-  <footer>
-    Manufacturing Pipeline is open-source software released under the MIT License.<br/>
-    This privacy policy applies to all teams using the Manufacturing Pipeline OnShape application.
-  </footer>
+  <footer>Manufacturing Pipeline is open-source software. Source code is available on <a href="https://github.com/FRCTeam6328/Onshape-Manufacturing-Pipeline" target="_blank">GitHub</a>.</footer>
 
 </div>
 </body>
