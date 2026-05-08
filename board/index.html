@@ -589,7 +589,15 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // ── API ─────────────────────────────────────────────────────
 async function apiGet() {
-  const r = await fetch(BOARD_API);
+  const credential = sessionStorage.getItem('mfg_credential') || '';
+  const headers = {};
+  if (credential) headers['Authorization'] = 'Bearer ' + credential;
+  const r = await fetch(BOARD_API, { headers });
+  if (r.status === 401) {
+    sessionStorage.removeItem('mfg_credential');
+    toast('Session expired — please sign out and sign in again', 'error');
+    throw new Error('Session expired');
+  }
   const d = await r.json();
   if (!d.ok) throw new Error(d.error || 'API error');
   return d;
@@ -702,23 +710,23 @@ function makeCardEl(card) {
     document.querySelectorAll('.col-cards').forEach(z => z.classList.remove('drag-over'));
   });
   const tags = [];
-  if (card.project)  tags.push(`<span class="tag tag-project">${card.project}</span>`);
-  if (card.machine)  tags.push(`<span class="tag tag-machine">${card.machine}</span>`);
-  if (card.part_type) tags.push(`<span class="tag tag-parttype">${fmtPartType(card.part_type)}</span>`);
+  if (card.project)  tags.push(`<span class="tag tag-project">${esc(card.project)}</span>`);
+  if (card.machine)  tags.push(`<span class="tag tag-machine">${esc(card.machine)}</span>`);
+  if (card.part_type) tags.push(`<span class="tag tag-parttype">${esc(fmtPartType(card.part_type))}</span>`);
   const _finish = fmtFinish(card.finish);
   if (_finish) {
     const _fraw = (card.finish || '').replace('Powder Coat — ', '').toLowerCase();
     const _dotColors = { blue:'#4d8fff', black:'#404040', yellow:'#FACB43', pink:'#FF69B4' };
     const _dotColor = _dotColors[_fraw];
     const _dotHtml = _dotColor ? `<span class="pc-dot" style="background:${_dotColor};${_fraw==='black'?'outline:1px solid rgba(255,255,255,.2);outline-offset:0;':''}"></span>` : '';
-    const _label = _finish.replace('Powder Coat — ','PC ');
+    const _label = esc(_finish.replace('Powder Coat — ','PC '));
     tags.push(`<span class="tag tag-finish">${_dotHtml}${_label}</span>`);
   }
   const meta = [];
   const mat = [card.material, fmtThickness(card.thickness)].filter(Boolean).join(' · ');
-  if (mat) meta.push(`<div class="card-meta-row"><strong>${mat}</strong></div>`);
+  if (mat) meta.push(`<div class="card-meta-row"><strong>${esc(mat)}</strong></div>`);
   if (card.quantity) meta.push(`<div class="card-meta-row">Qty: <strong>${card.quantity}</strong></div>`);
-  if (card.assigned_to) meta.push(`<div class="card-meta-row">→ <strong>${card.assigned_to}</strong></div>`);
+  if (card.assigned_to) meta.push(`<div class="card-meta-row">→ <strong>${esc(card.assigned_to)}</strong></div>`);
   if (card.submitted_by || card.created_at) {
     const _by = card.submitted_by ? card.submitted_by.replace(/@.*$/,'') : null;
     const _when = card.created_at ? timeAgo(card.created_at) : null;
