@@ -9,6 +9,64 @@
 import { neon } from '@neondatabase/serverless';
 import { put, del } from '@vercel/blob';
 
+// ── Google ID-token verification ─────────────────────────────────────────────
+// Destructive / mutating operations (update, move, delete) require a valid
+// Google ID token in the  Authorization: Bearer <token>  request header.
+// createCard and file-upload actions are intentionally left open so the OnShape
+// panel (which has no Google auth) can still submit cards.
+//
+// Required Vercel env var: GOOGLE_ALLOWED_DOMAIN  (e.g. "littletonrobotics.org")
+// Optional env var:        GOOGLE_CLIENT_ID       (tightens audience verification)
+//
+// The board frontend stores the credential in sessionStorage on sign-in and
+// sends it on every POST.  GIS auto-prompt (data-auto_prompt="true") refreshes
+// it silently on page load so it stays current.
+const _tokenCache = new Map(); // token → true|false, cleared after TTL
+
+async function requireAuth(req, res) {
+  const auth = req.headers['authorization'] || '';
+  if (!auth.startsWith('Bearer ')) {
+    res.status(401).json({ error: 'Authentication required — please sign out and sign in again' });
+    return false;
+  }
+  const token = auth.slice(7);
+
+  // Check in-process cache first (avoids a Google round-trip per request)
+  if (_tokenCache.has(token)) {
+    if (_tokenCache.get(token)) return true;
+    res.status(401).json({ error: 'Invalid or expired session — please sign out and sign in again' });
+    return false;
+  }
+
+  try {
+    const r = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`
+    );
+    if (!r.ok) throw new Error('tokeninfo returned ' + r.status);
+    const info = await r.json();
+
+    // Optional: check the token was issued for this app's client ID
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (clientId && info.aud !== clientId) throw new Error('audience mismatch');
+
+    // Required: check the email belongs to the allowed domain
+    const domain = process.env.GOOGLE_ALLOWED_DOMAIN;
+    if (domain && !info.email?.endsWith('@' + domain)) throw new Error('domain not allowed');
+
+    // Cache positive result for 5 minutes
+    _tokenCache.set(token, true);
+    setTimeout(() => _tokenCache.delete(token), 5 * 60 * 1000);
+    return true;
+  } catch {
+    // Cache negative result for 1 minute to limit repeated Google calls
+    _tokenCache.set(token, false);
+    setTimeout(() => _tokenCache.delete(token), 60 * 1000);
+    res.status(401).json({ error: 'Invalid or expired session — please sign out and sign in again' });
+    return false;
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -25,8 +83,9 @@ export default async function handler(req, res) {
   const sql = neon(process.env.DATABASE_URL);
 
   try {
-    // GET → getCards
+    // GET → getCards (requires auth — card data should not be world-readable)
     if (req.method === 'GET') {
+      if (!await requireAuth(req, res)) return;
       const cards = await sql`SELECT * FROM cards ORDER BY created_at DESC`;
       return res.json({ ok: true, cards });
     }
@@ -69,6 +128,7 @@ export default async function handler(req, res) {
       return res.json({ ok: true, card: rows[0] });
 
     } else if (action === 'updateCard') {
+      if (!await requireAuth(req, res)) return;
       if (!id) return res.status(400).json({ error: 'Missing id' });
       const u = updates || {};
       // Coerce quantity: empty string → null, otherwise parse as integer
@@ -101,11 +161,13 @@ export default async function handler(req, res) {
       return res.json({ ok: true });
 
     } else if (action === 'moveCard') {
+      if (!await requireAuth(req, res)) return;
       if (!id || !newStatus) return res.status(400).json({ error: 'Missing id or status' });
       await sql`UPDATE cards SET status = ${newStatus}, updated_at = NOW() WHERE id = ${id}`;
       return res.json({ ok: true });
 
     } else if (action === 'deleteCard') {
+      if (!await requireAuth(req, res)) return;
       if (!id) return res.status(400).json({ error: 'Missing id' });
       const rows = await sql`SELECT step_file_url, pdf_file_url, thumbnail_url FROM cards WHERE id = ${id}`;
       if (rows[0]?.step_file_url) {
