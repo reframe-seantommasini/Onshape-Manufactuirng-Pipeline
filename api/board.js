@@ -83,8 +83,9 @@ export default async function handler(req, res) {
   const sql = neon(process.env.DATABASE_URL);
 
   try {
-    // GET → getCards
+    // GET → getCards (requires auth — card data should not be world-readable)
     if (req.method === 'GET') {
+      if (!await requireAuth(req, res)) return;
       const cards = await sql`SELECT * FROM cards ORDER BY created_at DESC`;
       return res.json({ ok: true, cards });
     }
