@@ -187,7 +187,7 @@
   <div class="tab-content active" id="tab-parts">
     <div class="toolbar">
       <div class="doc-info" id="doc-info">Select parts in Part Studio or tap ↻ to load all</div>
-      <button class="btn btn-secondary btn-sm" onclick="loadParts()" title="Refresh">↻</button>
+      <button class="btn btn-secondary btn-sm" onclick="loadParts(true)" title="Refresh — clears cached parts and geometry">↻</button>
       <button class="btn btn-secondary btn-sm" onclick="selectAll()">All</button>
       <button class="btn btn-secondary btn-sm" onclick="clearSelection()">Clear</button>
     </div>
@@ -719,6 +719,22 @@ let globalProject='';
 let faceToBodyId={};  // entityId (face OR edge selectionId) -> bodyId, built from /bodydetails
 let bodyBounds={};    // bodyId -> bounding box object, populated alongside faceToBodyId
 
+// ── SESSION CACHE ───────────────────────────────────────────────────────────
+// Cuts OnShape API calls by caching the parts list and body details in
+// sessionStorage for the life of the browser tab. Keys are scoped to
+// {docId}_{elementId} so data from one Part Studio never bleeds into another.
+// The ↻ button busts all cached data and forces a full refetch.
+//
+// Geometry detection (FeatureScript) and thumbnails are intentionally NOT
+// cached — students edit CAD and submit cards in the same session, so those
+// always run fresh to avoid returning stale auto-detection results.
+const _cache = {
+  _k(s)       { return `mfg_${s}_${docId}_${elementId}`; },
+  get(s)      { try { const v = sessionStorage.getItem(this._k(s)); return v !== null ? JSON.parse(v) : null; } catch { return null; } },
+  set(s, val) { try { sessionStorage.setItem(this._k(s), JSON.stringify(val)); } catch {} },
+  bustAll()   { try { Object.keys(sessionStorage).filter(k => k.startsWith('mfg_')).forEach(k => sessionStorage.removeItem(k)); } catch {} },
+};
+
 function useDemoMode(){CONFIG.demo=true;launchApp();}
 function launchApp(){
   document.getElementById('config-screen').style.display='none';
@@ -951,6 +967,14 @@ let faceMapLoaded = false;
 
 async function buildFaceMap(){
   if(faceMapLoaded || !docId || !wvmId || !elementId) return;
+  const cachedMap = _cache.get('bodydetails');
+  if(cachedMap){
+    Object.assign(faceToBodyId, cachedMap.faceToBodyId);
+    Object.assign(bodyBounds,   cachedMap.bodyBounds);
+    faceMapLoaded = true;
+    console.log('[MFG] Face map restored from cache');
+    return;
+  }
   try {
     const data = await onshapeFetch(`/partstudios/d/${docId}/${wvmType}/${wvmId}/e/${elementId}/bodydetails?includeVertices=true`);
     if(!data || !data.bodies) { console.warn('[MFG v1.71] bodydetails: no bodies'); return; }
@@ -987,6 +1011,7 @@ async function buildFaceMap(){
       }
     });
     faceMapLoaded = true;
+    _cache.set('bodydetails', { faceToBodyId, bodyBounds });
     console.log(`[MFG v1.71] Entity map built: ${faceCount} faces+edges across ${data.bodies.length} bodies`);
     console.log('[MFG v1.71] Sample body IDs:', [...new Set(Object.values(faceToBodyId))].slice(0,5));
     console.log('[MFG v1.71] bodyBounds sample:', Object.entries(bodyBounds).slice(0,2));
@@ -1112,15 +1137,23 @@ async function onshapeFetch(path){
   if(!resp.ok) throw new Error('OnShape API '+resp.status);
   return resp.json();
 }
-async function loadParts(){
+async function loadParts(bustCache = false){
   if(CONFIG.demo){loadDemoParts();return;}
   if(!docId){return;}
+  if(bustCache) _cache.bustAll();
   const list=document.getElementById('part-list');
+  const cached = _cache.get('parts');
+  if(cached){
+    console.log('[MFG] Parts restored from cache');
+    renderParts(cached);
+    buildFaceMap();
+    return;
+  }
   list.innerHTML='<div class="empty-state"><span class="spinner"></span> Loading parts...</div>';
   try{
     const data=await onshapeFetch(`/parts/d/${docId}/${wvmType}/${wvmId}/e/${elementId}`);
     console.log('[MFG v1.71] Raw parts response sample:', JSON.stringify(data[0]));
-    renderParts(data.map(p=>({
+    const mapped = data.map(p=>({
       id:         p.partId,
       bodyId:     p.bodyId||'',
       nodeId:     p.nodeId||'',
@@ -1130,7 +1163,9 @@ async function loadParts(){
       appearance: p.appearance||null,   // {color:{red,green,blue}, opacity, isGenerated}
       material:   p.material||null,     // {displayName, ...} e.g. "Aluminum - 6061"
       isSheetMetal: !!(p.isFlattenedBody) // true if this is the flat pattern body of a sheet metal part
-    })));
+    }));
+    _cache.set('parts', mapped);
+    renderParts(mapped);
     buildFaceMap();  // async — maps face selectionIds -> bodyIds via /bodydetails
   }catch(err){
     list.innerHTML=`<div class="empty-state" style="color:#ef4444">Failed to load: ${err.message}</div>`;
