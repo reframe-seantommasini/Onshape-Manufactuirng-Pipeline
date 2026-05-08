@@ -711,15 +711,27 @@ let faceToBodyId={};  // entityId (face OR edge selectionId) -> bodyId, built fr
 let bodyBounds={};    // bodyId -> bounding box object, populated alongside faceToBodyId
 
 // ── SESSION CACHE ───────────────────────────────────────────────────────────
-// Cuts OnShape API calls by storing responses in sessionStorage for the life
-// of the browser tab. Keys are scoped to {docId}_{elementId} so data from
-// one Part Studio never bleeds into another.
-// The ↻ button calls loadParts(true) which busts all cached data and refetches.
+// Cuts OnShape API calls by storing responses in sessionStorage.
+// Keys are scoped to {docId}_{elementId} so data from one Part Studio
+// never bleeds into another. The ↻ button busts all cached data.
+//
+// Two cache tiers:
+//   Session-level  (parts list, body details) — valid until tab closes or ↻ is pressed.
+//                  Safe because these are keyed to the element and ↻ handles new parts.
+//   Timed          (geometry detection, thumbnails) — expire after GEO_CACHE_TTL_MS.
+//                  Geometry and appearance change while students are editing CAD, so
+//                  a short TTL ensures stale detection results don't survive past one
+//                  editing session even if the student doesn't press ↻.
+const GEO_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
 const _cache = {
-  _k(s)       { return `mfg_${s}_${docId}_${elementId}`; },
-  get(s)      { try { const v = sessionStorage.getItem(this._k(s)); return v !== null ? JSON.parse(v) : null; } catch { return null; } },
-  set(s, val) { try { sessionStorage.setItem(this._k(s), JSON.stringify(val)); } catch {} },
-  bustAll()   { try { Object.keys(sessionStorage).filter(k => k.startsWith('mfg_')).forEach(k => sessionStorage.removeItem(k)); } catch {} },
+  _k(s)            { return `mfg_${s}_${docId}_${elementId}`; },
+  get(s)           { try { const v = sessionStorage.getItem(this._k(s)); return v !== null ? JSON.parse(v) : null; } catch { return null; } },
+  set(s, val)      { try { sessionStorage.setItem(this._k(s), JSON.stringify(val)); } catch {} },
+  // getTimed / setTimed wrap the value with an expiry timestamp
+  getTimed(s)      { try { const v = sessionStorage.getItem(this._k(s)); if (!v) return null; const { val, exp } = JSON.parse(v); return Date.now() < exp ? val : null; } catch { return null; } },
+  setTimed(s, val) { try { sessionStorage.setItem(this._k(s), JSON.stringify({ val, exp: Date.now() + GEO_CACHE_TTL_MS })); } catch {} },
+  bustAll()        { try { Object.keys(sessionStorage).filter(k => k.startsWith('mfg_')).forEach(k => sessionStorage.removeItem(k)); } catch {} },
 };
 
 function useDemoMode(){CONFIG.demo=true;launchApp();}
@@ -1302,7 +1314,7 @@ async function showPartForm(part,idx){
   // and geometry doesn't change while a student is in the middle of submitting parts.
   // The ↻ button busts the cache if geometry was actually changed.
   const _geoKey = 'geo_' + part.id;
-  const _cachedGeo = _cache.get(_geoKey);
+  const _cachedGeo = _cache.getTimed(_geoKey);
   if (_cachedGeo !== null) {
     if (_cachedGeo.partType)  pillState['partType']  = _cachedGeo.partType;
     if (_cachedGeo.thickness) pillState['thickness'] = _cachedGeo.thickness;
@@ -1348,8 +1360,9 @@ async function showPartForm(part,idx){
       }
     }
 
-    // Cache the geometry result so re-opening the modal for this part skips FeatureScript
-    _cache.set(_geoKey, {
+    // Cache the geometry result so re-opening the modal for this part skips FeatureScript.
+    // Uses timed cache so stale geometry from CAD edits expires after GEO_CACHE_TTL_MS.
+    _cache.setTimed(_geoKey, {
       partType:  pillState['partType']  || null,
       thickness: pillState['thickness'] || null,
       machine:   pillState['machine']   || null,
@@ -1437,8 +1450,9 @@ async function fetchPartThumbnail(part) {
     if (wrap) wrap.style.display = 'none';
     return;
   }
-  // Return cached thumbnail — shaded-view renders rarely change during a session
-  const cachedB64 = _cache.get('thumb_' + part.id);
+  // Return cached thumbnail — expires with the same TTL as geometry so appearance
+  // changes during CAD edits don't get stuck showing the old render.
+  const cachedB64 = _cache.getTimed('thumb_' + part.id);
   if (cachedB64) {
     part._thumbnailB64 = cachedB64;
     wrap.innerHTML = `<img src="data:image/png;base64,${cachedB64}" alt="${esc(part.name)} preview"/>`;
@@ -1453,7 +1467,7 @@ async function fetchPartThumbnail(part) {
     const data = await resp.json();
     const b64 = data?.images?.[0];
     if (!b64) { wrap.style.display = 'none'; return; }
-    _cache.set('thumb_' + part.id, b64);
+    _cache.setTimed('thumb_' + part.id, b64);
     part._thumbnailB64 = b64; // store for upload at submission time
     wrap.innerHTML = `<img src="data:image/png;base64,${b64}" alt="${esc(part.name)} preview"/>`;
   } catch(e) {
