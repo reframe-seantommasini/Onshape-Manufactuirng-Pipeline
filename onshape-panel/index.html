@@ -747,6 +747,7 @@ function launchApp(){
   }, 5000);
 }
 function v(id){return document.getElementById(id)?.value?.trim()||'';}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 // ── INIT — fires as soon as the DOM is ready ────────────────────────────────
 window.addEventListener('DOMContentLoaded', ()=>{
@@ -1150,8 +1151,8 @@ function renderParts(data){
     el.innerHTML=`
       <input type="checkbox" id="chk-${p.id}" onchange="togglePart('${p.id}',this.checked)" ${fromStudio?'checked':''}/>
       <div style="flex:1;min-width:0">
-        <div class="part-name">${p.name}</div>
-        ${p.partNumber?`<div class="part-meta">#${p.partNumber}</div>`:''}
+        <div class="part-name">${esc(p.name)}</div>
+        ${p.partNumber?`<div class="part-meta">#${esc(p.partNumber)}</div>`:''}
       </div>
       ${fromStudio
         ? '<span class="badge" style="background:#4ade8022;color:#4ade80;border-color:#4ade8055">✓ Selected</span>'
@@ -1322,7 +1323,7 @@ async function showPartForm(part,idx){
   document.getElementById('modal-body').innerHTML=`
     <div class="part-thumb-wrap" id="part-thumb-wrap"><span class="part-thumb-spinner"><span class="spinner"></span> Loading preview...</span></div>
     <label>Part Display Name <span class="required">*</span></label>
-    <input type="text" id="f-name" value="${part.name}"/>
+    <input type="text" id="f-name" value="${esc(part.name)}"/>
     <hr class="sec-div"/>
     <label>Project <span class="required">*</span></label>
     ${renderPills('project',OPTIONS.project,'Custom project...')}
@@ -1393,7 +1394,7 @@ async function fetchPartThumbnail(part) {
     const b64 = data?.images?.[0];
     if (!b64) { wrap.style.display = 'none'; return; }
     part._thumbnailB64 = b64; // store for upload at submission time
-    wrap.innerHTML = `<img src="data:image/png;base64,${b64}" alt="${part.name} preview"/>`;
+    wrap.innerHTML = `<img src="data:image/png;base64,${b64}" alt="${esc(part.name)} preview"/>`;
   } catch(e) {
     if (wrap) wrap.style.display = 'none';
     console.warn('[MFG v1.83] Thumbnail fetch failed:', e.message);
@@ -1705,9 +1706,9 @@ function addToHistory(p){
   const el=document.createElement('div');
   el.className='history-item';
   el.innerHTML=`
-    <div class="history-item-name">${p.name}</div>
-    <div class="history-item-meta">Qty: ${p.qty} · ${p.submittedAt}</div>
-    <div class="history-tags">${tags.map(t=>`<span class="htag">${t}</span>`).join('')}</div>`;
+    <div class="history-item-name">${esc(p.name)}</div>
+    <div class="history-item-meta">Qty: ${esc(p.qty)} · ${p.submittedAt}</div>
+    <div class="history-tags">${tags.map(t=>`<span class="htag">${esc(t)}</span>`).join('')}</div>`;
   list.prepend(el);
 }
 

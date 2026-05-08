@@ -281,7 +281,7 @@ tr:hover .lt-actions{opacity:1;}
   <div class="auth-card">
     <div class="auth-card-title">Sign In</div>
     <p id="auth-domain-msg">Sign in with your Google account to access the board.</p>
-    <div id="g_id_onload" data-client_id="" data-callback="handleGoogleSignIn" data-auto_prompt="false"></div>
+    <div id="g_id_onload" data-client_id="" data-callback="handleGoogleSignIn" data-auto_prompt="true"></div>
     <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="filled_blue" data-text="signin_with" data-size="large" data-logo_alignment="left"></div>
     <p class="auth-error" id="auth-error"></p>
   </div>
@@ -526,6 +526,10 @@ function renderCurrentView() {
 
 // ── AUTH ────────────────────────────────────────────────────
 function handleGoogleSignIn(response) {
+  // Store the raw credential JWT so apiPost() can send it for server-side verification.
+  // GIS re-fires this callback automatically (via data-auto_prompt="true") on page load
+  // when the user has an active Google session, keeping the credential fresh.
+  if (response.credential) sessionStorage.setItem('mfg_credential', response.credential);
   const p = parseJwt(response.credential);
   if (!p.email.endsWith('@' + ALLOWED_DOMAIN)) {
     const err = document.getElementById('auth-error');
@@ -591,7 +595,15 @@ async function apiGet() {
   return d;
 }
 async function apiPost(body) {
-  const r = await fetch(BOARD_API, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+  const credential = sessionStorage.getItem('mfg_credential') || '';
+  const headers = { 'Content-Type': 'application/json' };
+  if (credential) headers['Authorization'] = 'Bearer ' + credential;
+  const r = await fetch(BOARD_API, { method: 'POST', headers, body: JSON.stringify(body) });
+  if (r.status === 401) {
+    sessionStorage.removeItem('mfg_credential');
+    toast('Session expired — please sign out and sign in again', 'error');
+    throw new Error('Session expired');
+  }
   const d = await r.json();
   if (!d.ok) throw new Error(d.error || 'API error');
   return d;
@@ -724,7 +736,7 @@ function makeCardEl(card) {
     ${meta.length?`<div class="card-meta">${meta.join('')}</div>`:''}
     ${card.notes?`<div class="card-notes">${esc(card.notes.slice(0,80))}${card.notes.length>80?'…':''}</div>`:''}
     ${(card.cad_link || card.step_file_url || card.pdf_file_url) ? `<div class="card-cad" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-      ${card.cad_link?`<a href="${esc(card.cad_link)}" target="_blank" onclick="event.stopPropagation()">↗ Open in OnShape</a>`:''}
+      ${card.cad_link?`<a href="${safeHref(card.cad_link)}" target="_blank" onclick="event.stopPropagation()">↗ Open in OnShape</a>`:''}
       <span style="flex:1;"></span>
       ${card.step_file_url?`<button class="btn-step" onclick="event.stopPropagation();downloadStep(event,'${card.id}','${esc(card.step_file_name||card.step_file_url)}')">⬇ ${(card.step_file_name||'').toLowerCase().endsWith('.dxf')?'DXF':'STEP'}</button>`:''}
       ${card.pdf_file_url?`<button class="btn-pdf" onclick="event.stopPropagation();downloadPdf(event,'${card.id}','${esc(card.pdf_file_name||card.pdf_file_url)}')">⬇ PDF</button>`:''}
@@ -825,7 +837,7 @@ function buildListView() {
           : '<span style="color:var(--muted)">—</span>';
 
         const cadHtml = card.cad_link
-          ? `<div class="lt-cad"><a href="${esc(card.cad_link)}" target="_blank" onclick="event.stopPropagation()">↗ CAD</a></div>`
+          ? `<div class="lt-cad"><a href="${safeHref(card.cad_link)}" target="_blank" onclick="event.stopPropagation()">↗ CAD</a></div>`
           : '<span style="color:var(--muted)">—</span>';
 
         tr.innerHTML = `
@@ -1098,7 +1110,7 @@ function openDetailModal(id) {
   const cadWrap = document.getElementById('detail-cad-wrap');
   const cadLink = document.getElementById('detail-cad');
   if (card.cad_link) {
-    cadLink.href = card.cad_link;
+    cadLink.href = safeHref(card.cad_link);
     cadWrap.style.display = 'flex';
   } else {
     cadWrap.style.display = 'none';
@@ -1177,6 +1189,12 @@ function fmtPartType(p) {
   return p.replace(/[xX×](\d)/g, '×$1').replace(/in$/i, '"');
 }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+// safeHref: only allow http/https URLs as link hrefs — blocks javascript: URIs
+function safeHref(url) {
+  if (!url) return '#';
+  try { const u = new URL(url); return (u.protocol==='https:'||u.protocol==='http:') ? url : '#'; }
+  catch { return '#'; }
+}
 function showLoading(on) { document.getElementById('loading').classList.toggle('show',on); }
 let toastTimer;
 function toast(msg, type='') {
