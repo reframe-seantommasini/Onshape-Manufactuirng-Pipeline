@@ -214,7 +214,7 @@
   <div class="tab-content active" id="tab-parts">
     <div class="toolbar">
       <div class="doc-info" id="doc-info">Select parts in Part Studio or tap ↻ to load all</div>
-      <button class="btn btn-secondary btn-sm" onclick="loadParts()" title="Refresh">↻</button>
+      <button class="btn btn-secondary btn-sm" onclick="loadParts(true)" title="Refresh — clears cached parts and geometry">↻</button>
       <button class="btn btn-secondary btn-sm" onclick="selectAll()">All</button>
       <button class="btn btn-secondary btn-sm" onclick="clearSelection()">Clear</button>
     </div>
@@ -710,6 +710,18 @@ let globalProject='';
 let faceToBodyId={};  // entityId (face OR edge selectionId) -> bodyId, built from /bodydetails
 let bodyBounds={};    // bodyId -> bounding box object, populated alongside faceToBodyId
 
+// ── SESSION CACHE ───────────────────────────────────────────────────────────
+// Cuts OnShape API calls by storing responses in sessionStorage for the life
+// of the browser tab. Keys are scoped to {docId}_{elementId} so data from
+// one Part Studio never bleeds into another.
+// The ↻ button calls loadParts(true) which busts all cached data and refetches.
+const _cache = {
+  _k(s)       { return `mfg_${s}_${docId}_${elementId}`; },
+  get(s)      { try { const v = sessionStorage.getItem(this._k(s)); return v !== null ? JSON.parse(v) : null; } catch { return null; } },
+  set(s, val) { try { sessionStorage.setItem(this._k(s), JSON.stringify(val)); } catch {} },
+  bustAll()   { try { Object.keys(sessionStorage).filter(k => k.startsWith('mfg_')).forEach(k => sessionStorage.removeItem(k)); } catch {} },
+};
+
 function useDemoMode(){CONFIG.demo=true;launchApp();}
 function launchApp(){
   document.getElementById('config-screen').style.display='none';
@@ -938,6 +950,15 @@ let faceMapLoaded = false;
 
 async function buildFaceMap(){
   if(faceMapLoaded || !docId || !wvmId || !elementId) return;
+  // Restore from session cache — /bodydetails is the heaviest call in the panel
+  const cachedMap = _cache.get('bodydetails');
+  if(cachedMap){
+    Object.assign(faceToBodyId, cachedMap.faceToBodyId);
+    Object.assign(bodyBounds,   cachedMap.bodyBounds);
+    faceMapLoaded = true;
+    console.log('[MFG] Face map restored from cache');
+    return;
+  }
   try {
     const data = await onshapeFetch(`/partstudios/d/${docId}/${wvmType}/${wvmId}/e/${elementId}/bodydetails?includeVertices=true`);
     if(!data || !data.bodies) { console.warn('[MFG v1.71] bodydetails: no bodies'); return; }
@@ -974,6 +995,7 @@ async function buildFaceMap(){
       }
     });
     faceMapLoaded = true;
+    _cache.set('bodydetails', { faceToBodyId, bodyBounds });
     console.log(`[MFG v1.71] Entity map built: ${faceCount} faces+edges across ${data.bodies.length} bodies`);
     console.log('[MFG v1.71] Sample body IDs:', [...new Set(Object.values(faceToBodyId))].slice(0,5));
     console.log('[MFG v1.71] bodyBounds sample:', Object.entries(bodyBounds).slice(0,2));
@@ -1099,15 +1121,24 @@ async function onshapeFetch(path){
   if(!resp.ok) throw new Error('OnShape API '+resp.status);
   return resp.json();
 }
-async function loadParts(){
+async function loadParts(bustCache = false){
   if(CONFIG.demo){loadDemoParts();return;}
   if(!docId){return;}
+  if(bustCache) _cache.bustAll();
   const list=document.getElementById('part-list');
+  // Return cached parts list without hitting the API
+  const cached = _cache.get('parts');
+  if(cached){
+    console.log('[MFG] Parts restored from cache');
+    renderParts(cached);
+    buildFaceMap();
+    return;
+  }
   list.innerHTML='<div class="empty-state"><span class="spinner"></span> Loading parts...</div>';
   try{
     const data=await onshapeFetch(`/parts/d/${docId}/${wvmType}/${wvmId}/e/${elementId}`);
     console.log('[MFG v1.71] Raw parts response sample:', JSON.stringify(data[0]));
-    renderParts(data.map(p=>({
+    const mapped = data.map(p=>({
       id:         p.partId,
       bodyId:     p.bodyId||'',
       nodeId:     p.nodeId||'',
@@ -1117,7 +1148,9 @@ async function loadParts(){
       appearance: p.appearance||null,   // {color:{red,green,blue}, opacity, isGenerated}
       material:   p.material||null,     // {displayName, ...} e.g. "Aluminum - 6061"
       isSheetMetal: !!(p.isFlattenedBody) // true if this is the flat pattern body of a sheet metal part
-    })));
+    }));
+    _cache.set('parts', mapped);
+    renderParts(mapped);
     buildFaceMap();  // async — maps face selectionIds -> bodyIds via /bodydetails
   }catch(err){
     list.innerHTML=`<div class="empty-state" style="color:#ef4444">Failed to load: ${err.message}</div>`;
@@ -1264,45 +1297,65 @@ async function showPartForm(part,idx){
     }
   }
 
-  // Auto-detect plate type + thickness from bounding box
-  const detectedPlate = await autoDetectPlate(part);
-  if (detectedPlate) {
-    pillState['partType']  = detectedPlate.partType;
-    pillState['thickness'] = detectedPlate.thickness;
-    pillState['machine']   = 'CNC Router';
-    pillState['status']    = 'Needs CAM';
-  }
-
-  // Auto-detect tube — only if plate check didn't match
-  if (!detectedPlate) {
-    const detectedTube = await autoDetectTube(part);
-    if (detectedTube) {
-      pillState['partType'] = detectedTube.partType;
-      if (detectedTube.thickness) pillState['thickness'] = detectedTube.thickness;
+  // Auto-detect part geometry via FeatureScript (plate, tube, hex, round shaft).
+  // Results are cached per-part in sessionStorage — FeatureScript calls are expensive
+  // and geometry doesn't change while a student is in the middle of submitting parts.
+  // The ↻ button busts the cache if geometry was actually changed.
+  const _geoKey = 'geo_' + part.id;
+  const _cachedGeo = _cache.get(_geoKey);
+  if (_cachedGeo !== null) {
+    if (_cachedGeo.partType)  pillState['partType']  = _cachedGeo.partType;
+    if (_cachedGeo.thickness) pillState['thickness'] = _cachedGeo.thickness;
+    if (_cachedGeo.machine)   pillState['machine']   = _cachedGeo.machine;
+    if (_cachedGeo.status)    pillState['status']    = _cachedGeo.status;
+    if (_cachedGeo.finish)    pillState['finish']    = _cachedGeo.finish;
+    console.log('[MFG] Geometry restored from cache:', _cachedGeo);
+  } else {
+    const detectedPlate = await autoDetectPlate(part);
+    if (detectedPlate) {
+      pillState['partType']  = detectedPlate.partType;
+      pillState['thickness'] = detectedPlate.thickness;
+      pillState['machine']   = 'CNC Router';
+      pillState['status']    = 'Needs CAM';
     }
-  }
 
-  // Auto-detect hex shaft — only if neither plate nor tube matched
-  // Note: rounded/filleted hex shafts may report a square bounding box and fall through
-  // to round shaft detection instead — this is expected behavior given bbox limitations.
-  if (!detectedPlate && !pillState['partType']) {
-    const detectedShaft = await autoDetectHexShaft(part);
-    if (detectedShaft) {
-      pillState['partType']  = detectedShaft.partType;
-      pillState['thickness'] = detectedShaft.thickness;
-      pillState['machine']   = 'Lathe';
-      pillState['finish']    = 'None';
+    if (!detectedPlate) {
+      const detectedTube = await autoDetectTube(part);
+      if (detectedTube) {
+        pillState['partType'] = detectedTube.partType;
+        if (detectedTube.thickness) pillState['thickness'] = detectedTube.thickness;
+      }
     }
-  }
 
-  // Auto-detect round shaft — only if nothing matched yet
-  if (!detectedPlate && !pillState['partType']) {
-    const detectedRound = await autoDetectRoundShaft(part);
-    if (detectedRound) {
-      pillState['partType']  = detectedRound.partType;
-      pillState['thickness'] = detectedRound.thickness;
-      pillState['machine']   = 'Lathe';
+    // Note: rounded/filleted hex shafts may report a square bounding box and fall through
+    // to round shaft detection instead — this is expected behavior given bbox limitations.
+    if (!detectedPlate && !pillState['partType']) {
+      const detectedShaft = await autoDetectHexShaft(part);
+      if (detectedShaft) {
+        pillState['partType']  = detectedShaft.partType;
+        pillState['thickness'] = detectedShaft.thickness;
+        pillState['machine']   = 'Lathe';
+        pillState['finish']    = 'None';
+      }
     }
+
+    if (!detectedPlate && !pillState['partType']) {
+      const detectedRound = await autoDetectRoundShaft(part);
+      if (detectedRound) {
+        pillState['partType']  = detectedRound.partType;
+        pillState['thickness'] = detectedRound.thickness;
+        pillState['machine']   = 'Lathe';
+      }
+    }
+
+    // Cache the geometry result so re-opening the modal for this part skips FeatureScript
+    _cache.set(_geoKey, {
+      partType:  pillState['partType']  || null,
+      thickness: pillState['thickness'] || null,
+      machine:   pillState['machine']   || null,
+      status:    pillState['status']    || null,
+      finish:    pillState['finish']    || null,
+    });
   }
 
   // Auto-detect sheet metal — check isFlattenedBody flag from parts API
@@ -1384,6 +1437,13 @@ async function fetchPartThumbnail(part) {
     if (wrap) wrap.style.display = 'none';
     return;
   }
+  // Return cached thumbnail — shaded-view renders rarely change during a session
+  const cachedB64 = _cache.get('thumb_' + part.id);
+  if (cachedB64) {
+    part._thumbnailB64 = cachedB64;
+    wrap.innerHTML = `<img src="data:image/png;base64,${cachedB64}" alt="${esc(part.name)} preview"/>`;
+    return;
+  }
   try {
     const path = `/parts/d/${docId}/${wvmType}/${wvmId}/e/${part.studio}/partid/${encodeURIComponent(part.id)}/shadedviews`
       + `?outputHeight=220&outputWidth=440&pixelSize=0`
@@ -1393,6 +1453,7 @@ async function fetchPartThumbnail(part) {
     const data = await resp.json();
     const b64 = data?.images?.[0];
     if (!b64) { wrap.style.display = 'none'; return; }
+    _cache.set('thumb_' + part.id, b64);
     part._thumbnailB64 = b64; // store for upload at submission time
     wrap.innerHTML = `<img src="data:image/png;base64,${b64}" alt="${esc(part.name)} preview"/>`;
   } catch(e) {
