@@ -18,28 +18,31 @@
 const TEAM_CONFIG = {
 
   // ── Team Identity ───────────────────────────────────────────────────────────
-  teamNumber: '6328',
-  teamName:   'Mechanical Advantage',
+  // Your FRC team number and name — shown in the OnShape panel header.
+  teamNumber: '0000',
+  teamName:   'My FRC Team',
 
   // ── Google Auth ─────────────────────────────────────────────────────────────
   // Only accounts from this domain can sign in to the board.
   // Use your team's Google Workspace domain (e.g. 'frc1234.org').
   // If your team doesn't have a custom domain, use 'gmail.com' to allow any Google account.
-  googleAllowedDomain: 'littletonrobotics.org',
+  googleAllowedDomain: 'yourteam.org',
 
   // Client ID from Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client
-  // Set Authorized JavaScript Origins to your Vercel URL (e.g. https://yourapp.vercel.app)
-  googleClientId: '266562169349-u5skq8phqr2v51e8jj4k1ji1g4odu5hj.apps.googleusercontent.com',
+  // Set Authorized JavaScript Origins to your Vercel deployment URL.
+  // See SETUP.md for step-by-step instructions.
+  googleClientId: 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com',
 
   // ── URLs ────────────────────────────────────────────────────────────────────
   // Full URL to your deployed board — used in the OnShape panel "Board ↗" link.
-  boardUrl: 'https://slack-list-onshape-integration.vercel.app/board',
+  boardUrl: 'https://YOUR_APP.vercel.app/board',
 
   // ── Team Members ────────────────────────────────────────────────────────────
   // Names shown in the "Assigned To" dropdown on new/edit card forms.
   // Add every student or mentor who might be assigned manufacturing work.
   assignees: [
-    'Sean Tommasini',
+    'Student Name',
+    'Mentor Name',
   ],
 
   // ── Projects ────────────────────────────────────────────────────────────────
