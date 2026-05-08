@@ -27,6 +27,31 @@ export default async function handler(req, res) {
   const { path } = req.query;
   if (!path) return res.status(400).json({ error: 'Missing path param' });
 
+  // ── Path allowlist ──────────────────────────────────────────────────────────
+  // Only proxy the specific OnShape API paths this app actually uses.
+  // Without this, the proxy would forward requests to any OnShape endpoint
+  // (documents list, user account, other teams' data, etc.) using the team's credentials.
+  const ALLOWED_PATHS = [
+    // Part list for a Part Studio
+    /^\/parts\/d\/[^/?]+\/[wv]\/[^/?]+\/e\/[^/?]+(\?.*)?$/,
+    // Part shaded-view thumbnail
+    /^\/parts\/d\/[^/?]+\/[wv]\/[^/?]+\/e\/[^/?]+\/partid\/[^/?]+\/shadedviews(\?.*)?$/,
+    // Body details (face→body map for selection resolution)
+    /^\/partstudios\/d\/[^/?]+\/[wv]\/[^/?]+\/e\/[^/?]+\/bodydetails(\?.*)?$/,
+    // FeatureScript evaluation (bounding-box geometry detection)
+    /^\/partstudios\/d\/[^/?]+\/[wv]\/[^/?]+\/e\/[^/?]+\/featurescript(\?.*)?$/,
+    // Translation request (STEP / DXF export)
+    /^\/partstudios\/d\/[^/?]+\/[wv]\/[^/?]+\/e\/[^/?]+\/translations(\?.*)?$/,
+    // Translation status poll
+    /^\/translations\/[^/?]+(\?.*)?$/,
+    // Translated file download (external data)
+    /^\/documents\/d\/[^/?]+\/externaldata\/[^/?]+(\?.*)?$/,
+  ];
+  if (!ALLOWED_PATHS.some(re => re.test(path))) {
+    return res.status(403).json({ error: 'Path not permitted' });
+  }
+  // ───────────────────────────────────────────────────────────────────────────
+
   const upstreamUrl = `https://cad.onshape.com/api/v6${path}`;
   const headers = {
     'Authorization': 'Basic ' + Buffer.from(`${osKey}:${osSecret}`).toString('base64'),
